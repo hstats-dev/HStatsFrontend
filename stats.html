@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="HStats overall statistics for Hytale servers." />
+    <link rel="stylesheet" href="/src/style.css" />
+    <title>HStats | Overall Stats</title>
+    <script src="https://cdn.anychart.com/releases/8.14.1/js/anychart-bundle.min.js"></script>
+    <script src="https://cdn.anychart.com/releases/8.14.1/geodata/custom/world/world.js"></script>
+  </head>
+  <body>
+    <div class="page">
+      <div class="backdrop"></div>
+      <header class="site-header">
+        <nav class="nav">
+          <a class="brand-link" href="/index.html">
+            <div class="brand-mark">Logo</div>
+            <div class="brand-name">HStats</div>
+          </a>
+          <div class="nav-links">
+            <a href="/index.html">Overview</a>
+            <a href="/mods.html">Mods</a>
+            <a href="/stats.html">Overall Stats</a>
+          </div>
+          <div class="nav-actions">
+            <a class="ghost-button" href="/register.html">Register / Login</a>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="network" id="stats">
+          <div class="section-heading">
+            <h2>Overall stats</h2>
+            <p>A quick snapshot of Hytale server and mod activity across the HStats network.</p>
+          </div>
+          <div class="network-grid">
+            <div class="network-card">
+              <div class="chart-title">Total players</div>
+              <div class="big-stat" data-count data-value="1240000" data-format="short">1.24M</div>
+              <p class="muted">Peak concurrent players in the last hour.</p>
+            </div>
+            <div class="network-card">
+              <div class="chart-title">Total servers</div>
+              <div class="big-stat" data-count data-value="84902">84,902</div>
+              <p class="muted">Servers reporting today.</p>
+            </div>
+            <div class="network-card">
+              <div class="chart-title">Server versions</div>
+              <div id="stats-version-chart" class="chart-pie"></div>
+              <div class="legend">
+                <span><i class="legend-dot a"></i>1.0.3 (46%)</span>
+                <span><i class="legend-dot b"></i>1.0.2 (34%)</span>
+                <span><i class="legend-dot c"></i>1.0.1 (20%)</span>
+              </div>
+            </div>
+            <div class="network-card">
+              <div class="chart-title">Operating systems</div>
+              <div id="stats-os-chart" class="chart-pie"></div>
+              <div class="legend">
+                <span><i class="legend-dot a"></i>Linux (58%)</span>
+                <span><i class="legend-dot b"></i>Windows (27%)</span>
+                <span><i class="legend-dot c"></i>MacOS (15%)</span>
+              </div>
+            </div>
+            <div class="network-card">
+              <div class="chart-title">Top mod categories</div>
+              <div class="stat-bars">
+                <div class="stat-bar"><span>Economy</span><div class="bar" style="--value: 42%"></div></div>
+                <div class="stat-bar"><span>Combat</span><div class="bar" style="--value: 31%"></div></div>
+                <div class="stat-bar"><span>Worldgen</span><div class="bar" style="--value: 18%"></div></div>
+              </div>
+            </div>
+            <div class="network-card">
+              <div class="chart-title">Top regions</div>
+              <div class="stat-bars">
+                <div class="stat-bar"><span>NA-East</span><div class="bar" style="--value: 38%"></div></div>
+                <div class="stat-bar"><span>EU-Central</span><div class="bar" style="--value: 28%"></div></div>
+                <div class="stat-bar"><span>APAC</span><div class="bar" style="--value: 20%"></div></div>
+              </div>
+            </div>
+            <div class="network-card map-card">
+              <div class="chart-title">Servers by region</div>
+              <div id="container" class="map-container"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>
+          <div class="brand-name">HStats</div>
+          <p class="muted">Free analytics for Hytale mods. Metrics shown are placeholders.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/index.html">Overview</a>
+          <a href="/mods.html">Mods</a>
+          <a href="/stats.html">Overall Stats</a>
+          <a href="/register.html">Register / Login</a>
+        </div>
+      </footer>
+    </div>
+
+    <script src="/src/stats.js"></script>
+    <script src="/src/numbers.js"></script>
+  </body>
+</html>

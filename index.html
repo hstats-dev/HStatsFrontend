@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="HStats is a free service for Hytale mod analytics." />
+    <link rel="stylesheet" href="/src/style.css" />
+    <title>HStats | Hytale Mod Analytics</title>
+  </head>
+  <body>
+    <div class="page">
+      <div class="backdrop"></div>
+      <header class="site-header">
+        <nav class="nav">
+          <a class="brand-link" href="/index.html">
+            <div class="brand-mark">Logo</div>
+            <div class="brand-name">HStats</div>
+          </a>
+          <div class="nav-links">
+            <a href="/index.html">Overview</a>
+            <a href="/mods.html">Mods</a>
+            <a href="/stats.html">Overall Stats</a>
+          </div>
+          <div class="nav-actions">
+            <a class="ghost-button" href="/register.html">Register / Login</a>
+          </div>
+        </nav>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero-content">
+            <h1>Free analytics for Hytale mods.</h1>
+            <p class="lead">
+              HStats lets you track usage, adoption, and trends for your Hytale mods. Add a mod name, see
+              your stats, and compare growth across the community.
+            </p>
+            <div class="hero-actions">
+              <button class="primary-button">Explore the Network</button>
+              <a class="ghost-button" href="/register.html">Register / Login</a>
+            </div>
+          </div>
+          <div class="hero-stats" id="overview">
+            <div class="metric-card">
+              <div class="metric-label">Online players</div>
+              <div class="metric-value" data-count data-value="1248331">1,248,331</div>
+              <div class="metric-meta">Updated 15 seconds ago</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Active servers</div>
+              <div class="metric-value" data-count data-value="84902">84,902</div>
+              <div class="metric-meta">Across 62 regions</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Tracked mods</div>
+              <div class="metric-value" data-count data-value="13402">13,402</div>
+              <div class="metric-meta">Top 100 charted hourly</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="features">
+          <div class="section-heading">
+            <h2>Everything you need for mod analytics.</h2>
+            <p>Track installs, active users, and version adoption for Hytale mods.</p>
+          </div>
+          <div class="feature-grid">
+            <div class="feature-card">
+              <h3>Mod adoption</h3>
+              <p>See how many servers run your mod and how fast your user base grows.</p>
+              <span class="link">View adoption trends</span>
+            </div>
+            <div class="feature-card">
+              <h3>Usage insights</h3>
+              <p>Measure daily active players, version splits, and server distribution.</p>
+              <span class="link">Browse mod analytics</span>
+            </div>
+            <div class="feature-card">
+              <h3>Community overview</h3>
+              <p>Explore the biggest regions, top servers, and fastest-growing mods.</p>
+              <span class="link">Open the dashboard</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="cta">
+          <div class="cta-split">
+            <div class="cta-main">
+              <span class="cta-eyebrow">Launch in minutes</span>
+              <h2>Start tracking your mod with a clean, focused workflow.</h2>
+              <p>Register once, add a mod name, and watch the analytics stream in without extra setup.</p>
+              <div class="cta-actions">
+                <a class="primary-button" href="/register.html">Register / Login</a>
+                <button class="ghost-button">View sample report</button>
+              </div>
+            </div>
+            <div class="cta-steps">
+              <div class="cta-step">
+                <div class="cta-step-number" data-count data-value="1">1</div>
+                <div>
+                  <div class="cta-step-title">Create your account</div>
+                  <div class="cta-step-text">Save your mod list and keep a private dashboard.</div>
+                </div>
+              </div>
+              <div class="cta-step">
+                <div class="cta-step-number" data-count data-value="2">2</div>
+                <div>
+                  <div class="cta-step-title">Add your mod name</div>
+                  <div class="cta-step-text">Connect a mod and start tracking adoption immediately.</div>
+                </div>
+              </div>
+              <div class="cta-step">
+                <div class="cta-step-number" data-count data-value="3">3</div>
+                <div>
+                  <div class="cta-step-title">Watch the trends</div>
+                  <div class="cta-step-text">See which servers and regions drive your growth.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>
+          <div class="brand-name">HStats</div>
+          <p class="muted">Free analytics for Hytale mods. Metrics shown are placeholders.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/index.html">Overview</a>
+          <a href="/mods.html">Mods</a>
+          <a href="/stats.html">Overall Stats</a>
+          <a href="/register.html">Register / Login</a>
+        </div>
+      </footer>
+    </div>
+
+    <script src="/src/numbers.js"></script>
+  </body>
+</html>
