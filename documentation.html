@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="HStats documentation: how to add stats tracking to your Hytale mod." />
+    <link rel="stylesheet" href="/src/style.css" />
+    <title>HStats | Documentation</title>
+  </head>
+  <body>
+    <div class="page">
+      <div class="backdrop"></div>
+      <header class="site-header">
+        <nav class="nav">
+          <a class="brand-link" href="/index.html">
+            <div class="brand-mark">Logo</div>
+            <div class="brand-name">HStats</div>
+          </a>
+          <div class="nav-links">
+            <a href="/index.html">Overview</a>
+            <a href="/mods.html">Mods</a>
+            <a href="/stats.html">Overall Stats</a>
+            <a href="/documentation.html">Documentation</a>
+          </div>
+          <div class="nav-actions">
+            <a class="ghost-button" href="/register.html">Register / Login</a>
+          </div>
+        </nav>
+      </header>
+
+      <main class="docs">
+        <section class="docs-hero">
+          <h1>Documentation</h1>
+          <p class="lead">
+            Add HStats to your Hytale mod in less than a minute. Stats are anonymous, and server owners can
+            disable HStats any time.
+          </p>
+        </section>
+
+        <section class="docs-download">
+          <div class="docs-card docs-download-card">
+            <div>
+              <h2>Latest HStats file</h2>
+              <p class="muted">Grab the HStats java file from GitHub to drag-and-drop into your mod source.</p>
+            </div>
+            <div class="docs-download-actions">
+              <a class="primary-button" href="https://github.com/yourname/hstats/blob/main/HStats.java">HStats.java</a>
+              <a class="ghost-button" href="https://github.com/yourname/hstats">Repository</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="docs-grid">
+          <div class="docs-card">
+            <h2>Quick start</h2>
+            <ol class="docs-steps">
+              <li>Register your mod on the HStats site and copy your Mod UUID.</li>
+              <li>Copy the HStats class file from GitHub into your mod source (package name can be changed).</li>
+              <li>In your plugin setup, add:</li>
+            </ol>
+            <pre class="code-block"><code><span class="token keyword">new</span> <span class="token class">HStats</span><span class="token punctuation">(</span><span class="token string">"INSERT MOD UUID"</span><span class="token punctuation">,</span> <span class="token string">"1.0.0"</span><span class="token punctuation">)</span><span class="token punctuation">;</span></code></pre>
+            <div class="docs-subtitle">Example setup method</div>
+            <pre class="code-block"><code><span class="token annotation">@Override</span>
+<span class="token keyword">protected</span> <span class="token keyword">void</span> <span class="token function">setup</span><span class="token punctuation">()</span> <span class="token punctuation">{</span>
+    <span class="token keyword">super</span><span class="token punctuation">.</span><span class="token function">setup</span><span class="token punctuation">();</span>
+    <span class="token keyword">new</span> <span class="token class">HStats</span><span class="token punctuation">(</span><span class="token string">"TEST-PLUGIN-UUID"</span><span class="token punctuation">,</span> <span class="token string">"1.0.0"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token punctuation">}</span></code></pre>
+            <p class="muted">
+              Do not modify the HStats file (besides the package name). If you change it without permission, your
+              account can be banned. It also defeats the point... the site displays stats on your mod, and messing
+              with the data defeats the purpose.
+            </p>
+          </div>
+
+          <div class="docs-card">
+            <h2>Privacy + Opt Out</h2>
+            <p>
+              Stats sent to HStats are anonymous. We do not collect player names, IPs, or any personal info.
+              Server owners can opt out any time by flipping a single flag.
+            </p>
+            <div class="docs-subtitle">What HStats sends</div>
+            <ul class="docs-list">
+              <li>Player Count</li>
+              <li>Server OS Name + OS Version</li>
+              <li>Java Version</li>
+              <li>CPU Core Count</li>
+              <li>Server UUID + Mod UUID + Mod Version</li>
+            </ul>
+            <p class="muted">These are used to generate the charts you see on the dashboard.</p>
+            <p class="muted">Set <code>enabled=false</code> in the server UUID file to disable metrics.</p>
+          </div>
+
+          <div class="docs-card">
+            <h2>Server UUID file</h2>
+            <p>
+              Each server gets a unique UUID the first time HStats runs. It is stored in a small text file
+              in the server root so it stays consistent across restarts.
+            </p>
+            <pre><code class="language-text">hstats-server-uuid.txt
+
+HStats - Hytale Plugin Metrics (hstats.dev)
+HStats is a simple metrics system for Hytale plugins. This file is here because one of your mods/plugins uses it,
+please do not modify the UUID. HStats will apply little to no effect on your server and analytics are anonymous,
+however you can still disable it.
+
+enabled=true
+&lt;server-uuid-here&gt;</code></pre>
+            <p class="muted">
+              To disable metrics on a server, set <code>enabled=false</code> in this file. HStats will stop sending.
+            </p>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div>
+          <div class="brand-name">HStats</div>
+          <p class="muted">Free stats for Hytale mods. Metrics shown are placeholders.</p>
+        </div>
+        <div class="footer-links">
+          <a href="/index.html">Overview</a>
+          <a href="/mods.html">Mods</a>
+          <a href="/stats.html">Overall Stats</a>
+          <a href="/documentation.html">Documentation</a>
+          <a href="/register.html">Register / Login</a>
+        </div>
+      </footer>
+    </div>
+
+    <script src="/src/numbers.js"></script>
+  </body>
+</html>

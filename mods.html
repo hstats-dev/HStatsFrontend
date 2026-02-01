@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="HStats mod analytics for Hytale servers." />
+    <meta name="description" content="HStats mod stats for Hytale servers." />
     <link rel="stylesheet" href="/src/style.css" />
-    <title>HStats | Mod Analytics</title>
+    <title>HStats | Mod Stats</title>
   </head>
   <body>
     <div class="page">
@@ -21,6 +21,7 @@
             <a href="/index.html">Overview</a>
             <a href="/mods.html">Mods</a>
             <a href="/stats.html">Overall Stats</a>
+            <a href="/documentation.html">Documentation</a>
           </div>
           <div class="nav-actions">
             <a class="ghost-button" href="/register.html">Register / Login</a>
@@ -31,7 +32,7 @@
       <main>
         <section class="hero centered">
           <div class="hero-content">
-            <h1>See how every Hytale mod performs across the network.</h1>
+            <h1>See how Hytale mods are doing across the community.</h1>
             <p class="lead">
               Search by mod, inspect adoption metrics, and compare player usage across versions. Results below
               are placeholders for your future data integration.
@@ -79,7 +80,7 @@
               <div class="detail-header">
                 <div>
                   <h3>CrystalForge</h3>
-                  <p class="detail-sub">Mod analytics overview (placeholder)</p>
+                  <p class="detail-sub">Mod stats overview (placeholder)</p>
                 </div>
                 <button class="ghost-button">View mod page</button>
               </div>
@@ -104,12 +105,12 @@
               <div class="chart-row">
                 <div class="chart-card">
                   <div class="chart-title">Version split</div>
-                  <div id="mod-version-chart" class="chart-pie"></div>
-                  <div class="legend">
-                    <span><i class="legend-dot a"></i>2.4.1 (52%)</span>
-                    <span><i class="legend-dot b"></i>2.4.0 (28%)</span>
-                    <span><i class="legend-dot c"></i>2.3.x (20%)</span>
-                  </div>
+                  <div
+                    id="mod-version-chart"
+                    class="chart-pie custom-pie"
+                    data-center-title="Version split"
+                    data-pie='[{"label":"2.4.1","value":52},{"label":"2.4.0","value":28},{"label":"2.3.x","value":20}]'
+                  ></div>
                 </div>
                 <div class="chart-card">
                   <div class="chart-title">Platform usage</div>
@@ -128,18 +129,25 @@
       <footer class="footer">
         <div>
           <div class="brand-name">HStats</div>
-          <p class="muted">Free analytics for Hytale mods. Metrics shown are placeholders.</p>
+          <p class="muted">Free stats for Hytale mods. Metrics shown are placeholders.</p>
         </div>
         <div class="footer-links">
           <a href="/index.html">Overview</a>
           <a href="/mods.html">Mods</a>
           <a href="/stats.html">Overall Stats</a>
+          <a href="/documentation.html">Documentation</a>
           <a href="/register.html">Register / Login</a>
         </div>
       </footer>
     </div>
 
-    <script src="/src/mods.js"></script>
+    <script src="/src/pie.js"></script>
     <script src="/src/numbers.js"></script>
   </body>
 </html>
+
+
+
+
+
+
