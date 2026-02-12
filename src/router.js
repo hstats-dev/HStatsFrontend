@@ -26,11 +26,16 @@ function resolveRoute(pathname) {
 
   const modDetailsMatch = pathname.match(/^\/mods\/([^/]+)$/);
   if (modDetailsMatch) {
-    return {
-      mount: mountModDetailsPage,
-      params: { pluginUuid: decodeURIComponent(modDetailsMatch[1]) },
-      requiresAuth: false,
-    };
+    try {
+      const pluginUuid = decodeURIComponent(modDetailsMatch[1]);
+      return {
+        mount: mountModDetailsPage,
+        params: { pluginUuid },
+        requiresAuth: false,
+      };
+    } catch {
+      return { mount: mountNotFoundPage, params: {}, requiresAuth: false };
+    }
   }
 
   return { mount: mountNotFoundPage, params: {}, requiresAuth: false };

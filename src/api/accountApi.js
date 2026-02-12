@@ -1,9 +1,15 @@
 import { apiRequest } from "./client";
 
-export function registerAccount(email, password) {
+export function registerAccount(email, password, recaptchaToken = "") {
+  const body = { email, password };
+  if (recaptchaToken) {
+    body.recaptcha_token = recaptchaToken;
+    body["g-recaptcha-response"] = recaptchaToken;
+  }
+
   return apiRequest("/account/register", {
     method: "POST",
-    body: { email, password },
+    body,
   });
 }
 

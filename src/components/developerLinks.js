@@ -102,8 +102,8 @@ export function renderDeveloperIconLinks(developerInfo) {
 }
 
 export function renderDeveloperButtons(developerInfo) {
-  const githubLink = sanitizeExternalUrl(developerInfo?.account?.github_link);
-  const curseforgeLink = sanitizeExternalUrl(developerInfo?.account?.curseforge_link);
+  const githubLink = sanitizeExternalUrl(developerInfo?.github_link || developerInfo?.account?.github_link);
+  const curseforgeLink = sanitizeExternalUrl(developerInfo?.curseforge_link || developerInfo?.account?.curseforge_link);
   const githubButton = textLink({
     href: githubLink,
     label: "GitHub",
