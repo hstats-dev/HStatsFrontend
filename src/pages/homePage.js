@@ -1,4 +1,4 @@
-﻿import { getGlobalStats } from "../api/serverApi";
+import { getGlobalStats } from "../api/serverApi";
 import { errorState } from "../components/errorState";
 import { formatNumber } from "../utils/format";
 
@@ -60,22 +60,43 @@ export async function mountHomePage({ container }) {
         </div>
       </header>
 
-      <section class="surface">
-        <div class="surface-body">
-          <h2 class="section-title text-xl">How It Works</h2>
-          <p class="muted mt-1">Three steps from install to insight.</p>
-          <div class="mt-4 grid gap-3 md:grid-cols-3">
-            <div class="rounded-lg border border-sky-100 bg-slate-50/70 p-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">Step 1</p>
-              <p class="mt-1 text-sm font-semibold text-slate-900">Add the HStats API to your mod</p>
+      <section class="surface overflow-hidden">
+        <div class="surface-body bg-gradient-to-br from-white via-slate-50 to-sky-50/60">
+          <div class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Getting Started</p>
+              <h2 class="section-title mt-2 text-2xl">How It Works</h2>
+              <div class="mt-5 space-y-3">
+                <article class="relative rounded-xl border border-sky-100 bg-white p-4 pl-12 shadow-sm">
+                  <span class="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">1</span>
+                  <p class="text-sm font-semibold text-slate-900">Add the HStats API to your mod</p>
+                  <p class="mt-1 text-sm text-slate-600">Drop in the integration and initialize tracking in your plugin startup.</p>
+                </article>
+                <article class="relative rounded-xl border border-sky-100 bg-white p-4 pl-12 shadow-sm">
+                  <span class="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">2</span>
+                  <p class="text-sm font-semibold text-slate-900">Servers report anonymous stats</p>
+                  <p class="mt-1 text-sm text-slate-600">Heartbeat and usage metrics are sent without collecting personal player data.</p>
+                </article>
+                <article class="relative rounded-xl border border-sky-100 bg-white p-4 pl-12 shadow-sm">
+                  <span class="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">3</span>
+                  <p class="text-sm font-semibold text-slate-900">Read live analytics in the dashboard</p>
+                  <p class="mt-1 text-sm text-slate-600">Track servers, players, geography, and trends as your mod grows.</p>
+                </article>
+              </div>
             </div>
-            <div class="rounded-lg border border-sky-100 bg-slate-50/70 p-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">Step 2</p>
-              <p class="mt-1 text-sm font-semibold text-slate-900">Servers report anonymous stats</p>
-            </div>
-            <div class="rounded-lg border border-sky-100 bg-slate-50/70 p-3">
-              <p class="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700">Step 3</p>
-              <p class="mt-1 text-sm font-semibold text-slate-900">View live analytics in your dashboard</p>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 shadow-inner">
+              <div class="overflow-hidden rounded-xl border border-slate-700 bg-black">
+                <div class="aspect-video w-full max-w-md mx-auto">
+                  <iframe
+                    class="h-full w-full"
+                    src="https://www.youtube.com/embed/"
+                    title="HStats Demo (Placeholder)"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                  ></iframe>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -149,3 +170,12 @@ export async function mountHomePage({ container }) {
     },
   };
 }
+
+
+
+
+
+
+
+
+
