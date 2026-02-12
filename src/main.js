@@ -7,6 +7,8 @@ const state = {
   account: null,
 };
 
+console.log("API Root: ", import.meta.env.VITE_API_BASE_URL);
+
 async function refreshSession() {
   try {
     const response = await getCurrentAccount();
