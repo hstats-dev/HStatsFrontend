@@ -3,6 +3,7 @@ import { getPluginInfo } from "../api/pluginApi";
 import { loadingState } from "../components/loadingState";
 import { errorState } from "../components/errorState";
 import { renderPluginAnalytics } from "../components/pluginAnalytics";
+import { setPageSeo } from "../utils/seo";
 
 export async function mountModDetailsPage({ container, params }) {
   const pluginUuid = params.pluginUuid;
@@ -31,6 +32,14 @@ export async function mountModDetailsPage({ container, params }) {
       getPluginInfo(pluginUuid),
       getPluginOwnership(pluginUuid).catch(() => null),
     ]);
+
+    const pluginName = String(pluginInfo.name || "Mod").trim() || "Mod";
+    setPageSeo({
+      title: `${pluginName} Analytics`,
+      description: `Live analytics for ${pluginName} on HStats, including active servers, player counts, and usage trends.`,
+      path: `/mods/${encodeURIComponent(pluginUuid)}`,
+    });
+
     const destroyCharts = renderPluginAnalytics(body, {
       pluginUuid,
       pluginInfo,

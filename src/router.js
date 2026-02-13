@@ -1,4 +1,5 @@
 import { renderLayout } from "./components/layout";
+import { setPageSeo } from "./utils/seo";
 import { mountHomePage } from "./pages/homePage";
 import { mountOverallStatsPage } from "./pages/overallStatsPage";
 import { mountModsPage } from "./pages/modsPage";
@@ -10,19 +11,72 @@ import { mountTosPage } from "./pages/tosPage";
 import { mountPrivacyPage } from "./pages/privacyPage";
 import { mountNotFoundPage } from "./pages/notFoundPage";
 
+const SEO_HOME = {
+  title: "Real-time Hytale Mod Analytics",
+  description: "Track live Hytale mod usage across servers with privacy and developer-focused analytics.",
+};
+
+const SEO_OVERALL_STATS = {
+  title: "Overall Network Stats",
+  description: "View global HStats activity including online players, active servers, countries, and environment breakdowns.",
+};
+
+const SEO_MODS = {
+  title: "Mods Directory",
+  description: "Browse tracked Hytale mods, check active servers and players, and open detailed analytics for each mod.",
+};
+
+const SEO_MOD_DETAILS = {
+  title: "Mod Analytics",
+  description: "Detailed HStats analytics for a specific Hytale mod, including usage trends and live server activity.",
+};
+
+const SEO_DOCS = {
+  title: "Documentation",
+  description: "Integrate HStats into your Hytale mod and start reporting live usage metrics in minutes.",
+};
+
+const SEO_DASHBOARD = {
+  title: "Developer Dashboard",
+  description: "Manage your mods, profile links, and live analytics in your private HStats dashboard.",
+  noIndex: true,
+};
+
+const SEO_AUTH = {
+  title: "Login or Register",
+  description: "Sign in to HStats to manage mods and access your private analytics dashboard.",
+  noIndex: true,
+};
+
+const SEO_TOS = {
+  title: "Terms of Service",
+  description: "Read the HStats terms covering platform usage, account responsibilities, and acceptable behavior.",
+};
+
+const SEO_PRIVACY = {
+  title: "Privacy Policy",
+  description: "Review how HStats handles account data, aggregate telemetry, and privacy protections.",
+};
+
+const SEO_NOT_FOUND = {
+  title: "Page Not Found",
+  description: "The page you requested could not be found on HStats.",
+  noIndex: true,
+};
+
 function resolveRoute(pathname) {
-  if (pathname === "/") return { mount: mountHomePage, params: {}, requiresAuth: false };
-  if (pathname === "/overall-stats") return { mount: mountOverallStatsPage, params: {}, requiresAuth: false };
-  if (pathname === "/mods") return { mount: mountModsPage, params: {}, requiresAuth: false };
+  if (pathname === "/") return { mount: mountHomePage, params: {}, requiresAuth: false, seo: SEO_HOME };
+  if (pathname === "/overall-stats") return { mount: mountOverallStatsPage, params: {}, requiresAuth: false, seo: SEO_OVERALL_STATS };
+  if (pathname === "/mods") return { mount: mountModsPage, params: {}, requiresAuth: false, seo: SEO_MODS };
   if (pathname === "/docs" || pathname === "/documentation") {
-    return { mount: mountDocumentationPage, params: {}, requiresAuth: false };
+    return { mount: mountDocumentationPage, params: {}, requiresAuth: false, seo: SEO_DOCS };
   }
-  if (pathname === "/dashboard") return { mount: mountDashboardPage, params: {}, requiresAuth: true };
-  if (pathname === "/auth") return { mount: mountAuthPage, params: {}, requiresAuth: false };
-  if (pathname === "/login") return { mount: mountAuthPage, params: { mode: "login" }, requiresAuth: false };
-  if (pathname === "/register") return { mount: mountAuthPage, params: { mode: "register" }, requiresAuth: false };
-  if (pathname === "/tos") return { mount: mountTosPage, params: {}, requiresAuth: false };
-  if (pathname === "/privacy") return { mount: mountPrivacyPage, params: {}, requiresAuth: false };
+  if (pathname === "/dashboard") return { mount: mountDashboardPage, params: {}, requiresAuth: true, seo: SEO_DASHBOARD };
+  if (pathname === "/auth") return { mount: mountAuthPage, params: {}, requiresAuth: false, seo: SEO_AUTH };
+  if (pathname === "/login") return { mount: mountAuthPage, params: { mode: "login" }, requiresAuth: false, seo: SEO_AUTH };
+  if (pathname === "/register") return { mount: mountAuthPage, params: { mode: "register" }, requiresAuth: false, seo: SEO_AUTH };
+  if (pathname === "/tos") return { mount: mountTosPage, params: {}, requiresAuth: false, seo: SEO_TOS };
+  if (pathname === "/privacy") return { mount: mountPrivacyPage, params: {}, requiresAuth: false, seo: SEO_PRIVACY };
 
   const modDetailsMatch = pathname.match(/^\/mods\/([^/]+)$/);
   if (modDetailsMatch) {
@@ -32,13 +86,14 @@ function resolveRoute(pathname) {
         mount: mountModDetailsPage,
         params: { pluginUuid },
         requiresAuth: false,
+        seo: SEO_MOD_DETAILS,
       };
     } catch {
-      return { mount: mountNotFoundPage, params: {}, requiresAuth: false };
+      return { mount: mountNotFoundPage, params: {}, requiresAuth: false, seo: SEO_NOT_FOUND };
     }
   }
 
-  return { mount: mountNotFoundPage, params: {}, requiresAuth: false };
+  return { mount: mountNotFoundPage, params: {}, requiresAuth: false, seo: SEO_NOT_FOUND };
 }
 
 function isInternalLinkAnchor(anchor) {
@@ -73,6 +128,11 @@ export function createRouter({ root, state, refreshSession, setAccount }) {
       navigate(`/auth?redirect=${redirect}`, { replace: true });
       return;
     }
+
+    setPageSeo({
+      ...(route.seo || SEO_NOT_FOUND),
+      path: `${url.pathname}${url.search}`,
+    });
 
     currentCleanup();
     currentCleanup = () => {};
