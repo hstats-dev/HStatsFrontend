@@ -89,8 +89,8 @@ export async function mountHomePage({ container }) {
                 <div class="aspect-video w-full max-w-md mx-auto">
                   <iframe
                     class="h-full w-full"
-                    src="https://www.youtube.com/embed/"
-                    title="HStats Demo (Placeholder)"
+                    src="https://www.youtube.com/embed/WTAE_Djbq2c?si=MWFTEHpUyYw2hsL4"
+                    title="HStats Demo"
                     loading="lazy"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     allowfullscreen
