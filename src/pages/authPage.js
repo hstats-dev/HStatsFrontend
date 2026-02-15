@@ -1,4 +1,4 @@
-import { loginAccount, registerAccount } from "../api/accountApi";
+import { getDiscordOAuthStartUrl, loginAccount, registerAccount } from "../api/accountApi";
 import { escapeHtml } from "../utils/escapeHtml";
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Lf8qWksAAAAACTDKKp41MJNO0fR26u_nlEjhp22";
@@ -83,10 +83,106 @@ function getMode(query, params) {
   return queryMode === "register" ? "register" : "login";
 }
 
+function sanitizeInternalPath(path, fallback = "/dashboard") {
+  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return fallback;
+  return path;
+}
+
+function buildDiscordReturnToPath(redirectPath) {
+  const params = new URLSearchParams();
+  params.set("redirect", redirectPath);
+  return `/auth?${params.toString()}`;
+}
+
+function resolveDiscordOAuthErrorMessage(errorCode) {
+  if (!errorCode) return "Discord login failed. Please try again.";
+
+  const normalized = String(errorCode).trim().toLowerCase();
+  if (normalized === "access_denied") return "Discord login was cancelled.";
+  if (normalized === "state_mismatch" || normalized === "invalid_state") return "OAuth verification failed. Please try again.";
+  if (normalized === "email_not_verified") return "Your Discord email is not verified. Please verify it and try again.";
+
+  return `Discord login failed (${escapeHtml(errorCode)}).`;
+}
+
 export async function mountAuthPage({ container, query, params, account, setAccount, navigate, refreshSession }) {
-  const redirectPath = query.get("redirect") || "/dashboard";
+  const redirectPath = sanitizeInternalPath(query.get("redirect"), "/dashboard");
   let mode = getMode(query, params);
   let isDisposed = false;
+  let oauthRedirectTimer = null;
+
+  const oauthProvider = query.get("oauth_provider");
+  const oauthStatus = query.get("oauth_status");
+  const oauthError = query.get("oauth_error");
+
+  if (oauthProvider === "discord" && oauthStatus) {
+    const redirectQuery = encodeURIComponent(redirectPath);
+    const returnToPath = buildDiscordReturnToPath(redirectPath);
+
+    container.innerHTML = `
+      <section class="mx-auto max-w-xl space-y-4">
+        <div class="surface">
+          <div class="surface-body space-y-3">
+            <h1 class="section-title">Discord Login</h1>
+            <p id="auth-oauth-status" class="text-sm text-slate-700">Processing Discord authentication...</p>
+            <div id="auth-oauth-actions" class="hidden flex flex-wrap gap-3">
+              <button id="auth-discord-retry" type="button" class="btn-primary">Try Discord Again</button>
+              <a href="/auth?redirect=${redirectQuery}" data-link class="btn-secondary">Use Email/Password</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    `;
+
+    const statusElement = container.querySelector("#auth-oauth-status");
+    const actionsElement = container.querySelector("#auth-oauth-actions");
+    const retryButton = container.querySelector("#auth-discord-retry");
+
+    const startDiscordLogin = () => {
+      window.location.assign(getDiscordOAuthStartUrl(returnToPath));
+    };
+
+    retryButton?.addEventListener("click", startDiscordLogin);
+
+    if (oauthStatus === "success") {
+      statusElement.textContent = "Discord login successful. Finalizing session...";
+      try {
+        const refreshedAccount = await refreshSession();
+        if (isDisposed) {
+          retryButton?.removeEventListener("click", startDiscordLogin);
+          return { cleanup: () => {} };
+        }
+
+        setAccount(refreshedAccount || null);
+
+        if (refreshedAccount) {
+          statusElement.innerHTML = `<span class="text-emerald-700">Success. Redirecting...</span>`;
+          oauthRedirectTimer = window.setTimeout(() => {
+            navigate(redirectPath, { replace: true });
+          }, 250);
+        } else {
+          statusElement.innerHTML = `<span class="text-red-700">Discord login completed, but session could not be loaded. Please try again.</span>`;
+          actionsElement.classList.remove("hidden");
+        }
+      } catch (error) {
+        statusElement.innerHTML = `<span class="text-red-700">${escapeHtml(error.message || "Failed to complete Discord login.")}</span>`;
+        actionsElement.classList.remove("hidden");
+      }
+    } else {
+      statusElement.innerHTML = `<span class="text-red-700">${resolveDiscordOAuthErrorMessage(oauthError)}</span>`;
+      actionsElement.classList.remove("hidden");
+    }
+
+    return {
+      cleanup: () => {
+        isDisposed = true;
+        if (oauthRedirectTimer) {
+          window.clearTimeout(oauthRedirectTimer);
+        }
+        retryButton?.removeEventListener("click", startDiscordLogin);
+      },
+    };
+  }
 
   if (account) {
     container.innerHTML = `
@@ -118,9 +214,20 @@ export async function mountAuthPage({ container, query, params, account, setAcco
             <button id="auth-login-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Login</button>
             <button id="auth-register-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "register" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Register</button>
           </div>
+          <button id="auth-discord-button" class="btn-secondary w-full" type="button">
+            Continue with Discord
+          </button>
+          <p class="text-xs text-slate-500">Or continue with email and password below.</p>
           <form id="auth-form" class="space-y-3">
             <input id="auth-email" class="input-base" type="email" required placeholder="Email address" />
             <input id="auth-password" class="input-base" type="password" required minlength="8" maxlength="128" placeholder="Password" />
+            <div id="auth-confirm-password-wrap" class="${mode === "register" ? "" : "hidden"}">
+              <input id="auth-confirm-password" class="input-base" type="password" minlength="8" maxlength="128" placeholder="Confirm password" ${mode === "register" ? "required" : ""} />
+            </div>
+            <label id="auth-show-password-wrap" class="${mode === "register" ? "inline-flex" : "hidden inline-flex"} items-center gap-2 text-xs font-medium text-slate-600">
+              <input id="auth-show-password" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+              Show password
+            </label>
             <p id="auth-recaptcha-note" class="${mode === "register" ? "" : "hidden"} text-xs text-slate-500">
               This site is protected by reCAPTCHA v3.
             </p>
@@ -134,12 +241,24 @@ export async function mountAuthPage({ container, query, params, account, setAcco
 
   const loginTab = container.querySelector("#auth-login-tab");
   const registerTab = container.querySelector("#auth-register-tab");
+  const discordButton = container.querySelector("#auth-discord-button");
   const form = container.querySelector("#auth-form");
   const emailInput = container.querySelector("#auth-email");
   const passwordInput = container.querySelector("#auth-password");
+  const confirmPasswordWrap = container.querySelector("#auth-confirm-password-wrap");
+  const confirmPasswordInput = container.querySelector("#auth-confirm-password");
+  const showPasswordWrap = container.querySelector("#auth-show-password-wrap");
+  const showPasswordInput = container.querySelector("#auth-show-password");
   const status = container.querySelector("#auth-status");
   const submitButton = form.querySelector("button[type='submit']");
   const recaptchaNote = container.querySelector("#auth-recaptcha-note");
+
+  function updatePasswordVisibility() {
+    const isRevealEnabled = mode === "register" && showPasswordInput.checked;
+    const type = isRevealEnabled ? "text" : "password";
+    passwordInput.type = type;
+    confirmPasswordInput.type = type;
+  }
 
   function updateTabStyles() {
     loginTab.className = `rounded-md px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-white text-brand-700 shadow" : "text-slate-700"}`;
@@ -147,14 +266,23 @@ export async function mountAuthPage({ container, query, params, account, setAcco
     submitButton.textContent = mode === "login" ? "Login" : "Register";
 
     if (mode === "register") {
+      confirmPasswordWrap.classList.remove("hidden");
+      showPasswordWrap.classList.remove("hidden");
+      confirmPasswordInput.required = true;
       recaptchaNote.classList.remove("hidden");
       void loadRecaptchaScript().catch((error) => {
         status.innerHTML = `<span class="text-red-700">${escapeHtml(error.message || "Failed to initialize reCAPTCHA")}</span>`;
       });
     } else {
+      confirmPasswordWrap.classList.add("hidden");
+      showPasswordWrap.classList.add("hidden");
+      confirmPasswordInput.required = false;
+      confirmPasswordInput.value = "";
+      showPasswordInput.checked = false;
       recaptchaNote.classList.add("hidden");
     }
 
+    updatePasswordVisibility();
     status.textContent = "";
   }
 
@@ -168,17 +296,38 @@ export async function mountAuthPage({ container, query, params, account, setAcco
     updateTabStyles();
   });
 
+  const startDiscordLogin = () => {
+    status.textContent = "Redirecting to Discord...";
+    const returnToPath = buildDiscordReturnToPath(redirectPath);
+    window.location.assign(getDiscordOAuthStartUrl(returnToPath));
+  };
+
+  discordButton.addEventListener("click", startDiscordLogin);
+  showPasswordInput.addEventListener("change", updatePasswordVisibility);
+
   if (mode === "register") {
     void loadRecaptchaScript().catch((error) => {
       status.innerHTML = `<span class="text-red-700">${escapeHtml(error.message || "Failed to initialize reCAPTCHA")}</span>`;
     });
   }
+  updatePasswordVisibility();
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     const email = emailInput.value.trim();
     const password = passwordInput.value;
     if (!email || !password) return;
+    if (mode === "register") {
+      const confirmPassword = confirmPasswordInput.value;
+      if (!confirmPassword) {
+        status.innerHTML = `<span class="text-red-700">Please confirm your password.</span>`;
+        return;
+      }
+      if (password !== confirmPassword) {
+        status.innerHTML = `<span class="text-red-700">Passwords do not match.</span>`;
+        return;
+      }
+    }
 
     submitButton.disabled = true;
     status.textContent = `${mode === "login" ? "Logging in" : "Creating account"}...`;
@@ -216,6 +365,11 @@ export async function mountAuthPage({ container, query, params, account, setAcco
   return {
     cleanup: () => {
       isDisposed = true;
+      if (oauthRedirectTimer) {
+        window.clearTimeout(oauthRedirectTimer);
+      }
+      discordButton.removeEventListener("click", startDiscordLogin);
+      showPasswordInput.removeEventListener("change", updatePasswordVisibility);
     },
   };
 }

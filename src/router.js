@@ -10,6 +10,7 @@ import { mountAuthPage } from "./pages/authPage";
 import { mountTosPage } from "./pages/tosPage";
 import { mountPrivacyPage } from "./pages/privacyPage";
 import { mountNotFoundPage } from "./pages/notFoundPage";
+import { toggleThemePreference } from "./utils/theme";
 
 const SEO_HOME = {
   title: "Real-time Hytale Mod Analytics",
@@ -96,6 +97,34 @@ function resolveRoute(pathname) {
   return { mount: mountNotFoundPage, params: {}, requiresAuth: false, seo: SEO_NOT_FOUND };
 }
 
+function normalizePathname(pathname) {
+  if (!pathname || pathname === "/") return "/";
+
+  let normalized = pathname;
+  if (normalized.toLowerCase().endsWith("/index.html")) {
+    normalized = normalized.slice(0, -"/index.html".length) || "/";
+  }
+
+  normalized = normalized.replace(/\/{2,}/g, "/");
+  if (normalized.length > 1) {
+    normalized = normalized.replace(/\/+$/, "");
+  }
+
+  return normalized || "/";
+}
+
+function normalizeDestination(path) {
+  const rawPath = path.startsWith("/") ? path : `/${path}`;
+
+  try {
+    const destinationUrl = new URL(rawPath, window.location.origin);
+    const normalizedPath = normalizePathname(destinationUrl.pathname);
+    return `${normalizedPath}${destinationUrl.search}${destinationUrl.hash}`;
+  } catch {
+    return rawPath;
+  }
+}
+
 function isInternalLinkAnchor(anchor) {
   const href = anchor.getAttribute("href");
   if (!href) return false;
@@ -109,7 +138,7 @@ export function createRouter({ root, state, refreshSession, setAccount }) {
   let renderToken = 0;
 
   const navigate = (path, { replace = false } = {}) => {
-    const destination = path.startsWith("/") ? path : `/${path}`;
+    const destination = normalizeDestination(path);
     if (replace) {
       window.history.replaceState({}, "", destination);
     } else {
@@ -121,23 +150,29 @@ export function createRouter({ root, state, refreshSession, setAccount }) {
   const render = async () => {
     const token = ++renderToken;
     const url = new URL(window.location.href);
-    const route = resolveRoute(url.pathname);
+    const normalizedPath = normalizePathname(url.pathname);
+
+    if (normalizedPath !== url.pathname) {
+      window.history.replaceState({}, "", `${normalizedPath}${url.search}${url.hash}`);
+    }
+
+    const route = resolveRoute(normalizedPath);
 
     if (route.requiresAuth && !state.account) {
-      const redirect = encodeURIComponent(`${url.pathname}${url.search}`);
+      const redirect = encodeURIComponent(`${normalizedPath}${url.search}`);
       navigate(`/auth?redirect=${redirect}`, { replace: true });
       return;
     }
 
     setPageSeo({
       ...(route.seo || SEO_NOT_FOUND),
-      path: `${url.pathname}${url.search}`,
+      path: `${normalizedPath}${url.search}`,
     });
 
     currentCleanup();
     currentCleanup = () => {};
 
-    renderLayout(root, { currentPath: url.pathname, account: state.account });
+    renderLayout(root, { currentPath: normalizedPath, account: state.account });
     const container = root.querySelector("#app-content");
 
     const context = {
@@ -172,6 +207,14 @@ export function createRouter({ root, state, refreshSession, setAccount }) {
   };
 
   const onLinkClick = (event) => {
+    const themeToggleButton = event.target.closest("button[data-theme-toggle]");
+    if (themeToggleButton) {
+      event.preventDefault();
+      toggleThemePreference();
+      void render();
+      return;
+    }
+
     const anchor = event.target.closest("a[data-link]");
     if (!anchor || !isInternalLinkAnchor(anchor)) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

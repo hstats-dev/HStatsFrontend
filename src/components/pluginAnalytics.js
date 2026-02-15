@@ -10,7 +10,6 @@ const DEFAULT_EMBED_OPTIONS = {
   theme: "light",
   layout: "compact",
   size: "md",
-  showId: true,
   dark: false,
 };
 
@@ -40,7 +39,7 @@ function buildEmbedCardUrl(pluginUuid, options, { cacheBust = false } = {}) {
   params.set("theme", options.theme);
   params.set("layout", options.layout);
   params.set("size", options.size);
-  params.set("show_id", String(options.showId));
+  params.set("show_id", "true");
   params.set("dark", String(options.dark));
 
   if (cacheBust) {
@@ -64,7 +63,7 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
           </div>
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label class="grid gap-1 text-xs font-semibold text-slate-600">
             Theme
             <select id="embed-theme" class="input-base py-2">
@@ -87,10 +86,6 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
               <option value="lg">Large</option>
             </select>
           </label>
-          <label class="inline-flex items-end gap-2 rounded-lg border border-sky-100 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
-            <input id="embed-show-id" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked />
-            Show mod ID
-          </label>
         </div>
 
         <label class="inline-flex items-center gap-2 rounded-lg border border-sky-100 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
@@ -101,6 +96,7 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
         <div class="space-y-3">
           <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
+            <p class="mt-1 text-[11px] text-slate-500">Size changes are applied in the URL, but preview is scaled to fit this panel.</p>
             <div class="mt-2 overflow-hidden rounded-lg border border-sky-100 bg-white p-3">
               <img
                 id="embed-preview-image"
@@ -235,7 +231,6 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const themeSelect = container.querySelector("#embed-theme");
   const layoutSelect = container.querySelector("#embed-layout");
   const sizeSelect = container.querySelector("#embed-size");
-  const showIdInput = container.querySelector("#embed-show-id");
   const darkAliasInput = container.querySelector("#embed-dark-alias");
   const previewImage = container.querySelector("#embed-preview-image");
   const urlOutput = container.querySelector("#embed-url-output");
@@ -252,7 +247,6 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
     themeSelect &&
     layoutSelect &&
     sizeSelect &&
-    showIdInput &&
     darkAliasInput &&
     previewImage &&
     urlOutput &&
@@ -263,7 +257,6 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
       theme: themeSelect.value,
       layout: layoutSelect.value,
       size: sizeSelect.value,
-      showId: showIdInput.checked,
       dark: darkAliasInput.checked,
     });
 
@@ -295,7 +288,6 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
     bindListener(themeSelect, "change", refreshEmbedPreview);
     bindListener(layoutSelect, "change", refreshEmbedPreview);
     bindListener(sizeSelect, "change", refreshEmbedPreview);
-    bindListener(showIdInput, "change", refreshEmbedPreview);
     bindListener(darkAliasInput, "change", refreshEmbedPreview);
     bindListener(copyUrlButton, "click", onCopyUrlClick);
   }

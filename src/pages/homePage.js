@@ -9,7 +9,7 @@ export async function mountHomePage({ container }) {
   container.innerHTML = `
     <section class="space-y-8">
       <header class="surface overflow-hidden">
-        <div class="surface-body bg-gradient-to-br from-sky-50/70 via-white to-slate-50">
+        <div class="surface-body home-hero-gradient bg-gradient-to-br from-sky-50/70 via-white to-slate-50">
           <div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-stretch">
             <div>
               <p class="text-sm font-semibold uppercase tracking-[0.18em] text-brand-700">HStats Live Network</p>
@@ -29,7 +29,7 @@ export async function mountHomePage({ container }) {
                 <a
                   href="/dashboard"
                   data-link
-                  class="inline-flex items-center rounded-xl bg-brand-600 px-6 py-3 text-base font-extrabold text-white shadow-lg shadow-sky-200/80 transition hover:-translate-y-0.5 hover:bg-brand-700 hover:text-white"
+                  class="home-dashboard-cta inline-flex items-center rounded-xl bg-brand-600 px-6 py-3 text-base font-extrabold text-white shadow-lg shadow-sky-200/80 transition hover:-translate-y-0.5 hover:bg-brand-700 hover:text-white"
                 >
                   Open Dashboard
                 </a>
@@ -61,7 +61,7 @@ export async function mountHomePage({ container }) {
       </header>
 
       <section class="surface overflow-hidden">
-        <div class="surface-body bg-gradient-to-br from-white via-slate-50 to-sky-50/60">
+        <div class="surface-body home-how-gradient bg-gradient-to-br from-white via-slate-50 to-sky-50/60">
           <div class="grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Getting Started</p>

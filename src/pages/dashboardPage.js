@@ -20,6 +20,34 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   let analyticsCleanup = () => {};
   let pollHandle = null;
   let disposed = false;
+  let currentAccount = account;
+  let isEmailRevealed = false;
+
+  function normalizeEmailValue(email) {
+    if (typeof email !== "string") return "";
+    return email.trim();
+  }
+
+  function renderEmailValue(email, revealFullEmail = false) {
+    const normalizedEmail = normalizeEmailValue(email);
+    if (!normalizedEmail) {
+      return `<span class="text-slate-500">No email available.</span>`;
+    }
+
+    if (revealFullEmail) {
+      return `<span class="font-mono text-xs sm:text-sm">${escapeHtml(normalizedEmail)}</span>`;
+    }
+
+    const midpoint = Math.ceil(normalizedEmail.length / 6);
+    const firstHalf = normalizedEmail.slice(0, midpoint);
+    const secondHalf = normalizedEmail.slice(midpoint);
+
+    return `
+      <span class="font-mono text-xs sm:text-sm">
+        ${escapeHtml(firstHalf)}<span class="inline-block align-middle blur-[5px] select-none">${escapeHtml(secondHalf)}</span>
+      </span>
+    `;
+  }
 
   container.innerHTML = `
     <section class="space-y-6">
@@ -32,55 +60,79 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       </header>
 
       <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
-        <section class="surface">
-          <div class="surface-body space-y-4">
-            <div>
-              <h2 class="text-lg font-bold text-slate-900">Mod Management</h2>
-              <p class="muted mt-1">Add, select, and manage your mods.</p>
-            </div>
+        <div class="space-y-6">
+          <section class="surface">
+            <div class="surface-body space-y-4">
+              <div>
+                <h2 class="text-lg font-bold text-slate-900">Mod Management</h2>
+                <p class="muted mt-1">Add, select, and manage your mods.</p>
+              </div>
 
             <form id="dashboard-add-plugin-form" class="space-y-3">
               <input id="dashboard-plugin-name" class="input-base" type="text" placeholder="Mod name" required />
               <button type="submit" class="btn-primary w-full">Add Mod</button>
+              <p id="dashboard-add-plugin-status" class="hidden text-xs font-semibold"></p>
             </form>
 
-            <div id="dashboard-plugin-list"></div>
-            <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-3">
-              <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700">Profile Links</h3>
-              <form id="dashboard-github-link-form" class="grid gap-2">
-                <label for="dashboard-github-link" class="text-xs font-semibold text-slate-600">GitHub Link</label>
-                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    id="dashboard-github-link"
-                    type="url"
-                    class="input-base"
-                    placeholder="https://github.com/your-name"
-                    value="${escapeHtml(account.github_link || "")}"
-                  />
-                  <button id="dashboard-github-link-submit" type="submit" class="btn-secondary">Save</button>
-                </div>
-              </form>
-              <form id="dashboard-curseforge-link-form" class="grid gap-2">
-                <label for="dashboard-curseforge-link" class="text-xs font-semibold text-slate-600">CurseForge Link</label>
-                <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    id="dashboard-curseforge-link"
-                    type="url"
-                    class="input-base"
-                    placeholder="https://www.curseforge.com/minecraft/mc-mods/your-mod"
-                    value="${escapeHtml(account.curseforge_link || "")}"
-                  />
-                  <button id="dashboard-curseforge-link-submit" type="submit" class="btn-secondary">Save</button>
-                </div>
-              </form>
-            </section>
-            <div class="border-t border-sky-100 pt-2">
-              <button id="dashboard-logout-button" class="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50">
-                Logout
-              </button>
+              <div id="dashboard-plugin-list"></div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          <section class="surface">
+            <div class="surface-body space-y-4">
+              <div>
+                <h2 class="text-lg font-bold text-slate-900">Account</h2>
+                <p class="muted mt-1">Manage profile links and session.</p>
+              </div>
+
+              <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-2">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700">Email</h3>
+                  <button id="dashboard-account-email-toggle" type="button" class="btn-secondary px-2 py-1 text-xs">Reveal</button>
+                </div>
+                <p id="dashboard-account-email-value" class="break-all text-slate-700">
+                  ${renderEmailValue(currentAccount?.email, isEmailRevealed)}
+                </p>
+              </section>
+
+              <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-3">
+                <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700">Profile Links</h3>
+                <form id="dashboard-github-link-form" class="grid gap-2">
+                  <label for="dashboard-github-link" class="text-xs font-semibold text-slate-600">GitHub Link</label>
+                  <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      id="dashboard-github-link"
+                      type="url"
+                      class="input-base"
+                      placeholder="https://github.com/your-name"
+                      value="${escapeHtml(currentAccount.github_link || "")}"
+                    />
+                    <button id="dashboard-github-link-submit" type="submit" class="btn-secondary">Save</button>
+                  </div>
+                </form>
+                <form id="dashboard-curseforge-link-form" class="grid gap-2">
+                  <label for="dashboard-curseforge-link" class="text-xs font-semibold text-slate-600">CurseForge Link</label>
+                  <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      id="dashboard-curseforge-link"
+                      type="url"
+                      class="input-base"
+                      placeholder="https://www.curseforge.com/minecraft/mc-mods/your-mod"
+                      value="${escapeHtml(currentAccount.curseforge_link || "")}"
+                    />
+                    <button id="dashboard-curseforge-link-submit" type="submit" class="btn-secondary">Save</button>
+                  </div>
+                </form>
+              </section>
+
+              <div class="border-t border-sky-100 pt-2">
+                <button id="dashboard-logout-button" class="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50">
+                  Logout
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
 
         <section class="space-y-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -96,6 +148,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   const addForm = container.querySelector("#dashboard-add-plugin-form");
   const nameInput = container.querySelector("#dashboard-plugin-name");
+  const addStatus = container.querySelector("#dashboard-add-plugin-status");
   const addSubmitButton = addForm.querySelector('button[type="submit"]');
   const githubLinkForm = container.querySelector("#dashboard-github-link-form");
   const githubLinkInput = container.querySelector("#dashboard-github-link");
@@ -103,6 +156,8 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   const curseforgeLinkForm = container.querySelector("#dashboard-curseforge-link-form");
   const curseforgeLinkInput = container.querySelector("#dashboard-curseforge-link");
   const curseforgeLinkSubmit = container.querySelector("#dashboard-curseforge-link-submit");
+  const accountEmailValue = container.querySelector("#dashboard-account-email-value");
+  const accountEmailToggle = container.querySelector("#dashboard-account-email-toggle");
   const pluginList = container.querySelector("#dashboard-plugin-list");
   const logoutButton = container.querySelector("#dashboard-logout-button");
   const liveStatus = container.querySelector("#dashboard-live-status");
@@ -143,10 +198,63 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     }, 3400);
   }
 
-  function applyAccountLinksToInputs(currentAccount) {
-    if (!currentAccount) return;
+  function clearAddStatus() {
+    addStatus.textContent = "";
+    addStatus.classList.add("hidden");
+    addStatus.classList.remove("text-red-700");
+    addStatus.classList.remove("text-emerald-700");
+  }
+
+  function showAddStatus(message, type = "error") {
+    addStatus.textContent = message;
+    addStatus.classList.remove("hidden");
+    addStatus.classList.remove("text-red-700");
+    addStatus.classList.remove("text-emerald-700");
+    addStatus.classList.add(type === "error" ? "text-red-700" : "text-emerald-700");
+  }
+
+  function resolveAddPluginError(error) {
+    const errorCode = String(error?.payload?.error_code || "").trim().toLowerCase();
+    const errorField = String(error?.payload?.field || "").trim().toLowerCase();
+
+    if (error?.status === 400 && errorCode === "inappropriate_language" && errorField === "name") {
+      return "That mod name is not allowed. Please choose a different name.";
+    }
+    if (error?.status === 400 && errorCode === "name_too_long" && errorField === "name") {
+      const maxLengthValue = Number(error?.payload?.max_length);
+      const maxLength = Number.isFinite(maxLengthValue) && maxLengthValue > 0 ? Math.floor(maxLengthValue) : 32;
+      return `Mod name must be ${maxLength} characters or fewer.`;
+    }
+    if (errorCode === "plugin_limit_reached") {
+      const maxPluginsValue = Number(error?.payload?.max_plugins);
+      const maxPlugins = Number.isFinite(maxPluginsValue) && maxPluginsValue > 0 ? Math.floor(maxPluginsValue) : null;
+      return maxPlugins
+        ? `You have reached the maximum of ${maxPlugins} mods on your account.`
+        : "You have reached the maximum number of mods allowed for your account.";
+    }
+
+    return error?.message || "Unknown error";
+  }
+
+  function renderAccountEmail() {
+    const email = normalizeEmailValue(currentAccount?.email);
+    accountEmailValue.innerHTML = renderEmailValue(email, isEmailRevealed);
+    if (!email) {
+      accountEmailToggle.disabled = true;
+      accountEmailToggle.textContent = "Unavailable";
+      return;
+    }
+
+    accountEmailToggle.disabled = false;
+    accountEmailToggle.textContent = isEmailRevealed ? "Hide" : "Reveal";
+  }
+
+  function applyAccountDetails(nextAccount) {
+    if (!nextAccount) return;
+    currentAccount = nextAccount;
     githubLinkInput.value = currentAccount.github_link || "";
     curseforgeLinkInput.value = currentAccount.curseforge_link || "";
+    renderAccountEmail();
   }
 
   function renderPluginList() {
@@ -258,7 +366,8 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     pluginList.innerHTML = loadingState("Loading your mods...");
     liveContent.innerHTML = loadingState("Preparing live analytics...");
 
-    const latestAccount = (await refreshSession()) || account;
+    const latestAccount = (await refreshSession()) || currentAccount;
+    applyAccountDetails(latestAccount);
     const pluginUuids = parsePluginAccess(latestAccount?.plugin_access);
     if (pluginUuids.length === 0) {
       pluginItems = [];
@@ -302,20 +411,28 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     event.preventDefault();
     const name = nameInput.value.trim();
     if (!name) return;
+    clearAddStatus();
 
     addSubmitButton.disabled = true;
     addSubmitButton.textContent = "Adding...";
     try {
       const result = await addPlugin(name);
       showFeedback(`Mod created: ${result.plugin_uuid}`, "success", addForm);
+      showAddStatus("Mod created successfully.", "success");
       addForm.reset();
       await loadPlugins();
     } catch (error) {
-      showFeedback(`Failed to add mod: ${error.message || "Unknown error"}`, "error", addForm);
+      const message = resolveAddPluginError(error);
+      showAddStatus(message, "error");
+      showFeedback(`Failed to add mod: ${message}`, "error", addForm);
     } finally {
       addSubmitButton.disabled = false;
       addSubmitButton.textContent = "Add Mod";
     }
+  });
+
+  nameInput.addEventListener("input", () => {
+    clearAddStatus();
   });
 
   githubLinkForm.addEventListener("submit", async (event) => {
@@ -332,7 +449,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       await applyGithubLink(link);
       const latestAccount = await refreshSession();
       setAccount(latestAccount || null);
-      applyAccountLinksToInputs(latestAccount);
+      applyAccountDetails(latestAccount);
       showFeedback("GitHub link saved", "success", githubLinkForm);
     } catch (error) {
       showFeedback(`Failed to save GitHub link: ${error.message || "Unknown error"}`, "error", githubLinkForm);
@@ -356,7 +473,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       await applyCurseforgeLink(link);
       const latestAccount = await refreshSession();
       setAccount(latestAccount || null);
-      applyAccountLinksToInputs(latestAccount);
+      applyAccountDetails(latestAccount);
       showFeedback("CurseForge link saved", "success", curseforgeLinkForm);
     } catch (error) {
       showFeedback(`Failed to save CurseForge link: ${error.message || "Unknown error"}`, "error", curseforgeLinkForm);
@@ -426,6 +543,13 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     refreshLiveStats(true, { notifyOnSuccess: true });
   });
 
+  const onToggleEmail = () => {
+    isEmailRevealed = !isEmailRevealed;
+    renderAccountEmail();
+  };
+
+  accountEmailToggle.addEventListener("click", onToggleEmail);
+
   logoutButton.addEventListener("click", async () => {
     logoutButton.disabled = true;
     try {
@@ -438,12 +562,14 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   });
 
   await loadPlugins();
+  renderAccountEmail();
 
   return {
     cleanup: () => {
       disposed = true;
       stopPolling();
       destroyAnalytics();
+      accountEmailToggle.removeEventListener("click", onToggleEmail);
     },
   };
 }

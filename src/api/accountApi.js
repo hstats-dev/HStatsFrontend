@@ -1,4 +1,5 @@
 import { apiRequest } from "./client";
+import { API_ROOT } from "../config";
 
 export function registerAccount(email, password, recaptchaToken = "") {
   const body = { email, password };
@@ -60,4 +61,11 @@ export function getPluginOwnership(pluginUuid, signal) {
   return apiRequest(`/account/get-plugin-ownership/${encodeURIComponent(pluginUuid)}`, {
     signal,
   });
+}
+
+export function getDiscordOAuthStartUrl(returnToPath = "/auth") {
+  const normalizedReturnTo = typeof returnToPath === "string" && returnToPath.startsWith("/") ? returnToPath : "/auth";
+  const oauthUrl = new URL(`${API_ROOT}/account/oauth/discord/start`);
+  oauthUrl.searchParams.set("return_to", normalizedReturnTo);
+  return oauthUrl.toString();
 }
