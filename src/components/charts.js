@@ -1,14 +1,7 @@
 import Chart from "chart.js/auto";
 
 const DEFAULT_PALETTE = [
-  "#0284c7",
-  "#0ea5e9",
-  "#38bdf8",
-  "#7dd3fc",
-  "#0369a1",
-  "#22d3ee",
-  "#06b6d4",
-  "#2563eb",
+  "#40e6ff", "#0ed4fc", "#00c2f8", "#00b0f1", "#009de8", "#008ddf", "#007dd6", "#006dcb", "#005cc0", "#004bb4", "#003aa7", "#002799"
 ];
 
 export function sortedCountEntries(source) {
