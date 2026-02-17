@@ -1,6 +1,6 @@
-﻿import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
+import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
 import { applyCurseforgeLink, applyGithubLink, logoutAccount } from "../api/accountApi";
-import { DASHBOARD_REFRESH_MS } from "../config";
+import { DASHBOARD_REFRESH_MS, FOOTER_DISCORD_URL } from "../config";
 import { parsePluginAccess } from "../utils/pluginAccess";
 import { formatTimestamp } from "../utils/format";
 import { loadingState } from "../components/loadingState";
@@ -59,6 +59,22 @@ export async function mountDashboardPage({ container, account, refreshSession, s
         <a href="/docs" data-link class="btn-secondary">View Documentation</a>
       </header>
 
+      <section class="rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-indigo-900">HStats is Very New!</p>
+            <p class="mt-1 text-sm text-indigo-800">There has been a lot more traffic the past few days. You may see bugs or rough edges while things are stabilizing. Please be patient and report issues or feedback in the Discord so we can improve quickly.</p>
+          </div>
+          <a
+            href="${FOOTER_DISCORD_URL}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]"
+          >
+            Join Discord
+          </a>
+        </div>
+      </section>
       <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div class="space-y-6">
           <section class="surface">
@@ -438,10 +454,10 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   githubLinkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const link = githubLinkInput.value.trim();
-    if (!link) {
-      showFeedback("GitHub link cannot be empty", "error", githubLinkForm);
-      return;
-    }
+    // if (!link) {
+    //   showFeedback("GitHub link cannot be empty", "error", githubLinkForm);
+    //   return;
+    // }
 
     githubLinkSubmit.disabled = true;
     githubLinkSubmit.textContent = "Saving...";
@@ -462,10 +478,10 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   curseforgeLinkForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const link = curseforgeLinkInput.value.trim();
-    if (!link) {
-      showFeedback("CurseForge link cannot be empty", "error", curseforgeLinkForm);
-      return;
-    }
+    // if (!link) {
+    //   showFeedback("CurseForge link cannot be empty", "error", curseforgeLinkForm);
+    //   return;
+    // }
 
     curseforgeLinkSubmit.disabled = true;
     curseforgeLinkSubmit.textContent = "Saving...";

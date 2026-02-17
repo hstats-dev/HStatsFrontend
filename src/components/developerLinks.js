@@ -15,6 +15,17 @@ function sanitizeExternalUrl(rawUrl) {
   }
 }
 
+function resolveDeveloperLinks(developerInfo) {
+  const nestedAccount = developerInfo?.account && typeof developerInfo.account === "object"
+    ? developerInfo.account
+    : {};
+
+  return {
+    githubLink: sanitizeExternalUrl(nestedAccount.github_link || developerInfo?.github_link),
+    curseforgeLink: sanitizeExternalUrl(nestedAccount.curseforge_link || developerInfo?.curseforge_link),
+  };
+}
+
 function githubIcon() {
   return `
     <svg viewBox="0 0 24 24" class="h-4 w-4" aria-hidden="true" focusable="false">
@@ -38,17 +49,7 @@ function curseforgeIcon() {
 }
 
 function iconLink({ href, label, icon, accentClass }) {
-  if (!href) {
-    return `
-      <span
-        class="inline-flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-slate-100 text-slate-400"
-        title="${escapeHtml(label)} not provided"
-        aria-label="${escapeHtml(label)} not provided"
-      >
-        ${icon}
-      </span>
-    `;
-  }
+  if (!href) return "";
 
   return `
     <a
@@ -80,30 +81,34 @@ function textLink({ href, label, icon, accentClass }) {
 }
 
 export function renderDeveloperIconLinks(developerInfo) {
-  const githubLink = sanitizeExternalUrl(developerInfo?.github_link);
-  const curseforgeLink = sanitizeExternalUrl(developerInfo?.curseforge_link);
+  const { githubLink, curseforgeLink } = resolveDeveloperLinks(developerInfo);
+  const github = iconLink({
+    href: githubLink,
+    label: "GitHub",
+    icon: githubIcon(),
+    accentClass: "hover:border-slate-400 hover:bg-slate-50",
+  });
+  const curseforge = iconLink({
+    href: curseforgeLink,
+    label: "CurseForge",
+    icon: curseforgeIcon(),
+    accentClass: "hover:border-orange-300 hover:bg-orange-50",
+  });
+
+  if (!github && !curseforge) {
+    return `<p class="mt-1 text-xs font-medium text-slate-500">No links listed</p>`;
+  }
 
   return `
     <div class="mt-1 flex items-center gap-2">
-      ${iconLink({
-        href: githubLink,
-        label: "GitHub",
-        icon: githubIcon(),
-        accentClass: "hover:border-slate-400 hover:bg-slate-50",
-      })}
-      ${iconLink({
-        href: curseforgeLink,
-        label: "CurseForge",
-        icon: curseforgeIcon(),
-        accentClass: "hover:border-orange-300 hover:bg-orange-50",
-      })}
+      ${github}
+      ${curseforge}
     </div>
   `;
 }
 
 export function renderDeveloperButtons(developerInfo) {
-  const githubLink = sanitizeExternalUrl(developerInfo?.github_link || developerInfo?.account?.github_link);
-  const curseforgeLink = sanitizeExternalUrl(developerInfo?.curseforge_link || developerInfo?.account?.curseforge_link);
+  const { githubLink, curseforgeLink } = resolveDeveloperLinks(developerInfo);
   const githubButton = textLink({
     href: githubLink,
     label: "GitHub",

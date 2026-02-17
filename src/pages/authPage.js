@@ -94,6 +94,16 @@ function buildDiscordReturnToPath(redirectPath) {
   return `/auth?${params.toString()}`;
 }
 
+function discordLogoIcon(sizeClass = "h-4 w-4") {
+  return `
+    <svg viewBox="0 0 127.14 96.36" aria-hidden="true" class="${sizeClass}" focusable="false">
+      <path
+        fill="currentColor"
+        d="M107.7 8.07A105.15 105.15 0 0 0 81.47 0a72.06 72.06 0 0 0-3.36 6.83 97.68 97.68 0 0 0-29.11 0A72.37 72.37 0 0 0 45.64 0a105.89 105.89 0 0 0-26.27 8.09C2.79 32.65-1.71 56.61.54 80.24h.02a105.73 105.73 0 0 0 32.17 16.12 77.7 77.7 0 0 0 6.89-11.35 68.42 68.42 0 0 1-10.84-5.18c.91-.67 1.79-1.37 2.64-2.1a75.57 75.57 0 0 0 64.32 0c.85.73 1.73 1.43 2.64 2.1a68.68 68.68 0 0 1-10.86 5.19 77.25 77.25 0 0 0 6.89 11.34A105.25 105.25 0 0 0 126.58 80.24c2.64-27.4-4.5-51.14-18.88-72.17ZM42.45 65.69c-6.28 0-11.45-5.76-11.45-12.84 0-7.09 5.04-12.85 11.45-12.85 6.46 0 11.57 5.81 11.45 12.85 0 7.08-5.04 12.84-11.45 12.84Zm42.24 0c-6.28 0-11.45-5.76-11.45-12.84 0-7.09 5.04-12.85 11.45-12.85 6.46 0 11.57 5.81 11.45 12.85 0 7.08-5.04 12.84-11.45 12.84Z"
+      />
+    </svg>
+  `;
+}
 function resolveDiscordOAuthErrorMessage(errorCode) {
   if (!errorCode) return "Discord login failed. Please try again.";
 
@@ -126,7 +136,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
             <h1 class="section-title">Discord Login</h1>
             <p id="auth-oauth-status" class="text-sm text-slate-700">Processing Discord authentication...</p>
             <div id="auth-oauth-actions" class="hidden flex flex-wrap gap-3">
-              <button id="auth-discord-retry" type="button" class="btn-primary">Try Discord Again</button>
+              <button id="auth-discord-retry" type="button" class="inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]">${discordLogoIcon()}<span>Try Discord Again</span></button>
               <a href="/auth?redirect=${redirectQuery}" data-link class="btn-secondary">Use Email/Password</a>
             </div>
           </div>
@@ -214,9 +224,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
             <button id="auth-login-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Login</button>
             <button id="auth-register-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "register" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Register</button>
           </div>
-          <button id="auth-discord-button" class="btn-secondary w-full" type="button">
-            Continue with Discord
-          </button>
+          <button id="auth-discord-button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]" type="button">${discordLogoIcon()}<span>Continue with Discord</span></button>
           <p class="text-xs text-slate-500">Or continue with email and password below.</p>
           <form id="auth-form" class="space-y-3">
             <input id="auth-email" class="input-base" type="email" required placeholder="Email address" />
