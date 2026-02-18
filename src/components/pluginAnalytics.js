@@ -1,4 +1,4 @@
-﻿import { API_ROOT } from "../config";
+import { API_ROOT } from "../config";
 import { createChart, paletteFor, sortedCountEntries } from "./charts";
 import { statCard } from "./statCard";
 import { emptyState } from "./emptyState";
@@ -12,6 +12,123 @@ const DEFAULT_EMBED_OPTIONS = {
   size: "md",
   dark: false,
 };
+const EASTERN_TIME_ZONE = "America/New_York";
+const HAS_EXPLICIT_TIMEZONE = /(Z|[+-]\d{2}:\d{2})$/i;
+
+function getTimeZoneOffsetMinutes(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+  });
+  const timeZoneName = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value || "";
+  const offsetMatch = timeZoneName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+  if (!offsetMatch) return null;
+
+  const sign = offsetMatch[1] === "-" ? -1 : 1;
+  const hours = Number(offsetMatch[2]) || 0;
+  const minutes = Number(offsetMatch[3]) || 0;
+  return sign * (hours * 60 + minutes);
+}
+
+function parseEasternTimestampToUtc(rawTimestamp) {
+  const match = rawTimestamp.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2})(?::(\d{2}))?(?::(\d{2}))?(?:\.(\d{1,3}))?$/,
+  );
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5] || "0");
+  const second = Number(match[6] || "0");
+  const millisecond = Number((match[7] || "0").padEnd(3, "0"));
+
+  const localAsUtc = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+  const initialOffset = getTimeZoneOffsetMinutes(new Date(localAsUtc), EASTERN_TIME_ZONE);
+  if (initialOffset === null) return null;
+
+  let utcTimestamp = localAsUtc - initialOffset * 60_000;
+
+  // Recalculate once after adjustment to handle DST boundaries accurately.
+  const adjustedOffset = getTimeZoneOffsetMinutes(new Date(utcTimestamp), EASTERN_TIME_ZONE);
+  if (adjustedOffset !== null && adjustedOffset !== initialOffset) {
+    utcTimestamp = localAsUtc - adjustedOffset * 60_000;
+  }
+
+  return utcTimestamp;
+}
+
+function parseHistoryTimestamp(value) {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (HAS_EXPLICIT_TIMEZONE.test(raw)) {
+    const parsed = new Date(raw).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const easternParsed = parseEasternTimestampToUtc(raw);
+  if (easternParsed !== null) return easternParsed;
+
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizePluginHistory(history) {
+  return history
+    .map((point, index) => {
+      const timestampSource = point?.hour_start || point?.day || "";
+      const parsedTimestamp = parseHistoryTimestamp(timestampSource);
+      return {
+        ...point,
+        _index: index,
+        _timestamp: parsedTimestamp,
+        _timestampSource: timestampSource,
+      };
+    })
+    .sort((a, b) => {
+      if (a._timestamp === null && b._timestamp === null) return a._index - b._index;
+      if (a._timestamp === null) return 1;
+      if (b._timestamp === null) return -1;
+      return a._timestamp - b._timestamp;
+    });
+}
+
+function formatHistoryLabel(point) {
+  if (point?._timestamp !== null) {
+    return new Date(point._timestamp).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return formatDateLabel(point?.day || point?._timestampSource || "");
+}
+
+function normalizeVersionEntries(versions) {
+  if (Array.isArray(versions)) {
+    return versions
+      .map((version) => [String(version || "").trim(), null])
+      .filter(([version]) => version);
+  }
+
+  if (versions && typeof versions === "object") {
+    return Object.entries(versions)
+      .map(([version, count]) => [String(version || "").trim(), Number(count) || 0])
+      .filter(([version, count]) => version && count > 0)
+      .sort((a, b) => b[1] - a[1]);
+  }
+
+  return [];
+}
+
+function formatCoreLabel(label) {
+  return `${String(label)} cores`;
+}
 
 function renderCanvasOrEmpty(holderElement, canvasId, title, hasData) {
   if (!hasData) {
@@ -123,10 +240,12 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
 }
 
 export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, developerInfo, showUuid = true }) {
-  const history = Array.isArray(pluginInfo.history) ? pluginInfo.history : [];
+  const history = normalizePluginHistory(Array.isArray(pluginInfo.history) ? pluginInfo.history : []);
   const countries = sortedCountEntries(pluginInfo.countries);
   const javaVersions = sortedCountEntries(pluginInfo.java_versions);
   const osNames = sortedCountEntries(pluginInfo.os_names);
+  const coreCounts = sortedCountEntries(pluginInfo.core_count);
+  const versionEntries = normalizeVersionEntries(pluginInfo.versions);
   const pluginName = pluginInfo.name || "Unknown";
 
   container.innerHTML = `
@@ -176,11 +295,18 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
           <p class="text-sm font-semibold text-slate-800">Known Versions</p>
           <div class="mt-3 flex flex-wrap gap-2">
             ${
-              Array.isArray(pluginInfo.versions) && pluginInfo.versions.length > 0
-                ? pluginInfo.versions
+              versionEntries.length > 0
+                ? versionEntries
                     .map(
-                      (version) =>
-                        `<span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-brand-700">${escapeHtml(version)}</span>`,
+                      ([version, count]) =>
+                        count === null
+                          ? `<span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-brand-700">${escapeHtml(version)}</span>`
+                          : `
+                            <span class="inline-flex items-center overflow-hidden rounded-full border border-sky-200 text-xs font-semibold">
+                              <span class="bg-sky-100 px-3 py-1 text-brand-700">${escapeHtml(version)}</span>
+                              <span class="bg-lime-100 px-2.5 py-1 text-lime-800">${escapeHtml(formatNumber(count))}</span>
+                            </span>
+                          `,
                     )
                     .join("")
                 : `<span class="text-sm text-slate-600">No versions reported yet.</span>`
@@ -193,6 +319,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
         <div id="plugin-countries-holder"></div>
         <div id="plugin-java-holder"></div>
         <div id="plugin-os-holder"></div>
+        <div id="plugin-cores-holder"></div>
       </section>
 
       ${renderEmbedCardControls(pluginUuid, pluginName)}
@@ -206,7 +333,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const historyCanvas = renderCanvasOrEmpty(
     container.querySelector("#plugin-history-holder"),
     "plugin-history-canvas",
-    "Daily History",
+    "Server and Player History",
     history.length > 0,
   );
   const countriesCanvas = renderCanvasOrEmpty(
@@ -226,6 +353,12 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
     "plugin-os-canvas",
     "Operating Systems",
     osNames.length > 0,
+  );
+  const coreCanvas = renderCanvasOrEmpty(
+    container.querySelector("#plugin-cores-holder"),
+    "plugin-cores-canvas",
+    "CPU Core Distribution",
+    coreCounts.length > 0,
   );
 
   const themeSelect = container.querySelector("#embed-theme");
@@ -297,25 +430,35 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
       createChart(historyCanvas, {
         type: "line",
         data: {
-          labels: history.map((point) => formatDateLabel(point.day)),
+          labels: history.map((point) => formatHistoryLabel(point)),
           datasets: [
             {
               label: "Servers",
               data: history.map((point) => Number(point.servers_count) || 0),
-              borderColor: "#0284c7",
-              backgroundColor: "rgba(2, 132, 199, 0.16)",
+              borderColor: "#ff2d2d",
+              backgroundColor: "rgba(255, 45, 45, 0.2)",
               fill: true,
               tension: 0.35,
             },
             {
               label: "Players",
               data: history.map((point) => Number(point.players_count) || 0),
-              borderColor: "#06b6d4",
-              backgroundColor: "rgba(6, 182, 212, 0.16)",
+              borderColor: "#79ea00",
+              backgroundColor: "rgba(132, 255, 0, 0.2)",
               fill: true,
               tension: 0.35,
             },
           ],
+        },
+        options: {
+          scales: {
+            x: {
+              ticks: {
+                autoSkip: true,
+                maxTicksLimit: 9,
+              },
+            },
+          },
         },
       }),
     );
@@ -348,7 +491,9 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
             {
               label: "Servers",
               data: javaVersions.map(([, value]) => value),
-              backgroundColor: "#38bdf8",
+              backgroundColor: paletteFor(javaVersions.length),
+              borderColor: paletteFor(javaVersions.length),
+              borderWidth: 1,
             },
           ],
         },
@@ -371,7 +516,9 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
             {
               label: "Servers",
               data: osNames.map(([, value]) => value),
-              backgroundColor: "#0ea5e9",
+              backgroundColor: paletteFor(osNames.length),
+              borderColor: paletteFor(osNames.length),
+              borderWidth: 1,
             },
           ],
         },
@@ -380,6 +527,23 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
           scales: {
             x: { beginAtZero: true },
           },
+        },
+      }),
+    );
+  }
+
+  if (coreCanvas) {
+    chartInstances.push(
+      createChart(coreCanvas, {
+        type: "pie",
+        data: {
+          labels: coreCounts.map(([label]) => formatCoreLabel(label)),
+          datasets: [
+            {
+              data: coreCounts.map(([, value]) => value),
+              backgroundColor: paletteFor(coreCounts.length),
+            },
+          ],
         },
       }),
     );

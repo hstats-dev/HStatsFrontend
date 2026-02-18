@@ -74,6 +74,10 @@ function renderChartOrEmpty(holder, title, canvasId, hasData) {
   return holder.querySelector("canvas");
 }
 
+function formatCoreLabel(label) {
+  return `${String(label)} cores`;
+}
+
 export async function mountOverallStatsPage({ container }) {
   let chartInstances = [];
   let statsRefreshHandle = null;
@@ -126,6 +130,7 @@ export async function mountOverallStatsPage({ container }) {
       const countries = sortedCountEntries(data.countries);
       const osNames = sortedCountEntries(data.os_names);
       const javaVersions = sortedCountEntries(data.java_versions);
+      const coreCounts = sortedCountEntries(data.core_count);
 
       content.innerHTML = `
         <div class="space-y-8">
@@ -136,11 +141,13 @@ export async function mountOverallStatsPage({ container }) {
             ${statCard({ label: "Mods Tracked", value: formatNumber(data.plugin_count || 0) })}
             ${statCard({ label: "Countries", value: formatNumber(countries.length) })}
             ${statCard({ label: "OS Families", value: formatNumber(osNames.length) })}
+            ${statCard({ label: "Core Buckets", value: formatNumber(coreCounts.length) })}
           </section>
-          <section class="grid gap-6 lg:grid-cols-3">
+          <section class="grid gap-6 lg:grid-cols-4">
             <div id="overall-countries"></div>
             <div id="overall-os"></div>
             <div id="overall-java"></div>
+            <div id="overall-cores"></div>
           </section>
         </div>
       `;
@@ -164,6 +171,12 @@ export async function mountOverallStatsPage({ container }) {
         "Java Version Breakdown",
         "overall-java-canvas",
         javaVersions.length > 0,
+      );
+      const coreCanvas = renderChartOrEmpty(
+        content.querySelector("#overall-cores"),
+        "CPU Core Distribution",
+        "overall-cores-canvas",
+        coreCounts.length > 0,
       );
 
       if (countriesCanvas) {
@@ -193,7 +206,9 @@ export async function mountOverallStatsPage({ container }) {
                 {
                   label: "Servers",
                   data: osNames.map(([, value]) => value),
-                  backgroundColor: "#0ea5e9",
+                  backgroundColor: paletteFor(osNames.length),
+                  borderColor: paletteFor(osNames.length),
+                  borderWidth: 1,
                 },
               ],
             },
@@ -217,7 +232,9 @@ export async function mountOverallStatsPage({ container }) {
                 {
                   label: "Servers",
                   data: javaVersions.map(([, value]) => value),
-                  backgroundColor: "#38bdf8",
+                  backgroundColor: paletteFor(javaVersions.length),
+                  borderColor: paletteFor(javaVersions.length),
+                  borderWidth: 1,
                 },
               ],
             },
@@ -225,6 +242,23 @@ export async function mountOverallStatsPage({ container }) {
               scales: {
                 y: { beginAtZero: true },
               },
+            },
+          }),
+        );
+      }
+
+      if (coreCanvas) {
+        chartInstances.push(
+          createChart(coreCanvas, {
+            type: "pie",
+            data: {
+              labels: coreCounts.map(([label]) => formatCoreLabel(label)),
+              datasets: [
+                {
+                  data: coreCounts.map(([, value]) => value),
+                  backgroundColor: paletteFor(coreCounts.length),
+                },
+              ],
             },
           }),
         );
