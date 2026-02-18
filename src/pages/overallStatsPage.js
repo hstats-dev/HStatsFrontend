@@ -130,7 +130,7 @@ export async function mountOverallStatsPage({ container }) {
       const countries = sortedCountEntries(data.countries);
       const osNames = sortedCountEntries(data.os_names);
       const javaVersions = sortedCountEntries(data.java_versions);
-      const coreCounts = sortedCountEntries(data.core_count);
+      const coreCounts = sortedCountEntries(data.core_counts);
 
       content.innerHTML = `
         <div class="space-y-8">
@@ -141,7 +141,6 @@ export async function mountOverallStatsPage({ container }) {
             ${statCard({ label: "Mods Tracked", value: formatNumber(data.plugin_count || 0) })}
             ${statCard({ label: "Countries", value: formatNumber(countries.length) })}
             ${statCard({ label: "OS Families", value: formatNumber(osNames.length) })}
-            ${statCard({ label: "Core Buckets", value: formatNumber(coreCounts.length) })}
           </section>
           <section class="grid gap-6 lg:grid-cols-4">
             <div id="overall-countries"></div>

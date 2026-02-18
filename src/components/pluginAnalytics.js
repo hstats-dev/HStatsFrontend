@@ -244,7 +244,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const countries = sortedCountEntries(pluginInfo.countries);
   const javaVersions = sortedCountEntries(pluginInfo.java_versions);
   const osNames = sortedCountEntries(pluginInfo.os_names);
-  const coreCounts = sortedCountEntries(pluginInfo.core_count);
+  const coreCounts = sortedCountEntries(pluginInfo.core_counts);
   const versionEntries = normalizeVersionEntries(pluginInfo.versions);
   const pluginName = pluginInfo.name || "Unknown";
 
