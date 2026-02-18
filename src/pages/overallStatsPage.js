@@ -130,7 +130,7 @@ export async function mountOverallStatsPage({ container }) {
       const countries = sortedCountEntries(data.countries);
       const osNames = sortedCountEntries(data.os_names);
       const javaVersions = sortedCountEntries(data.java_versions);
-      const coreCounts = sortedCountEntries(data.core_counts);
+      const coreCounts = sortedCountEntries(data.core_count);
 
       content.innerHTML = `
         <div class="space-y-8">
