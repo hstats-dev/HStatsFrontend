@@ -130,6 +130,26 @@ function formatCoreLabel(label) {
   return `${String(label)} cores`;
 }
 
+function formatPeakTimestamp(value) {
+  const parsed = parseHistoryTimestamp(value);
+  if (parsed === null) return "";
+  return new Date(parsed).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPeakDetail(peak) {
+  if (!peak || typeof peak !== "object") return "";
+  const count = Number(peak.count) || 0;
+  const atText = formatPeakTimestamp(peak.at);
+  return atText
+    ? `All-time peak: ${formatNumber(count)} at ${atText}`
+    : `All-time peak: ${formatNumber(count)}`;
+}
+
 function renderCanvasOrEmpty(holderElement, canvasId, title, hasData) {
   if (!hasData) {
     holderElement.innerHTML = emptyState(title, "No data has been reported yet.");
@@ -193,6 +213,7 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
             <select id="embed-layout" class="input-base py-2">
               <option value="compact" selected>Compact</option>
               <option value="stacked">Stacked</option>
+              <option value="history">History</option>
             </select>
           </label>
           <label class="grid gap-1 text-xs font-semibold text-slate-600">
@@ -244,8 +265,9 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const countries = sortedCountEntries(pluginInfo.countries);
   const javaVersions = sortedCountEntries(pluginInfo.java_versions);
   const osNames = sortedCountEntries(pluginInfo.os_names);
-  const coreCounts = sortedCountEntries(pluginInfo.core_counts);
+  const coreCounts = sortedCountEntries(pluginInfo.core_count || pluginInfo.core_counts);
   const versionEntries = normalizeVersionEntries(pluginInfo.versions);
+  const allTimePeak = pluginInfo.all_time_peak || {};
   const pluginName = pluginInfo.name || "Unknown";
 
   container.innerHTML = `
@@ -285,8 +307,16 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
           </div>
         </article>
         <div class="grid gap-4 sm:grid-cols-2">
-          ${statCard({ label: "Active Servers", value: formatNumber(pluginInfo.total_servers) })}
-          ${statCard({ label: "Total Players", value: formatNumber(pluginInfo.total_players) })}
+          ${statCard({
+            label: "Active Servers",
+            value: formatNumber(pluginInfo.total_servers),
+            detail: formatPeakDetail(allTimePeak.servers),
+          })}
+          ${statCard({
+            label: "Total Players",
+            value: formatNumber(pluginInfo.total_players),
+            detail: formatPeakDetail(allTimePeak.players),
+          })}
         </div>
       </section>
 

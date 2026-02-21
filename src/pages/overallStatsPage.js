@@ -9,6 +9,89 @@ import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
 
 const RECENT_ACTIVITY_REFRESH_MS = 10_000;
+const EASTERN_TIME_ZONE = "America/New_York";
+const HAS_EXPLICIT_TIMEZONE = /(Z|[+-]\d{2}:\d{2})$/i;
+
+function getTimeZoneOffsetMinutes(date, timeZone) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+  });
+  const timeZoneName = formatter.formatToParts(date).find((part) => part.type === "timeZoneName")?.value || "";
+  const offsetMatch = timeZoneName.match(/GMT([+-])(\d{1,2})(?::?(\d{2}))?/i);
+  if (!offsetMatch) return null;
+
+  const sign = offsetMatch[1] === "-" ? -1 : 1;
+  const hours = Number(offsetMatch[2]) || 0;
+  const minutes = Number(offsetMatch[3]) || 0;
+  return sign * (hours * 60 + minutes);
+}
+
+function parseEasternTimestampToUtc(rawTimestamp) {
+  const match = rawTimestamp.match(
+    /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2})(?::(\d{2}))?(?::(\d{2}))?(?:\.(\d{1,3}))?$/,
+  );
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const monthIndex = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5] || "0");
+  const second = Number(match[6] || "0");
+  const millisecond = Number((match[7] || "0").padEnd(3, "0"));
+
+  const localAsUtc = Date.UTC(year, monthIndex, day, hour, minute, second, millisecond);
+  const initialOffset = getTimeZoneOffsetMinutes(new Date(localAsUtc), EASTERN_TIME_ZONE);
+  if (initialOffset === null) return null;
+
+  let utcTimestamp = localAsUtc - initialOffset * 60_000;
+  const adjustedOffset = getTimeZoneOffsetMinutes(new Date(utcTimestamp), EASTERN_TIME_ZONE);
+  if (adjustedOffset !== null && adjustedOffset !== initialOffset) {
+    utcTimestamp = localAsUtc - adjustedOffset * 60_000;
+  }
+
+  return utcTimestamp;
+}
+
+function parseStatsTimestamp(value) {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (HAS_EXPLICIT_TIMEZONE.test(raw)) {
+    const parsed = new Date(raw).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  const easternParsed = parseEasternTimestampToUtc(raw);
+  if (easternParsed !== null) return easternParsed;
+
+  const parsed = new Date(raw).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatPeakTimestamp(value) {
+  const parsed = parseStatsTimestamp(value);
+  if (parsed === null) return "";
+  return new Date(parsed).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPeakDetail(peak) {
+  if (!peak || typeof peak !== "object") return "";
+  const count = Number(peak.count) || 0;
+  const atText = formatPeakTimestamp(peak.at);
+  return atText
+    ? `All-time peak: ${formatNumber(count)} at ${atText}`
+    : `All-time peak: ${formatNumber(count)}`;
+}
 
 function normalizeRecentActivity(payload) {
   if (Array.isArray(payload)) return payload;
@@ -131,12 +214,21 @@ export async function mountOverallStatsPage({ container }) {
       const osNames = sortedCountEntries(data.os_names);
       const javaVersions = sortedCountEntries(data.java_versions);
       const coreCounts = sortedCountEntries(data.core_count);
+      const allTimePeak = data.all_time_peak || {};
 
       content.innerHTML = `
         <div class="space-y-8">
           <section class="grid gap-x-4 gap-y-6 sm:grid-cols-2 xl:grid-cols-3">
-            ${statCard({ label: "Online Players", value: formatNumber(data.online_players) })}
-            ${statCard({ label: "Online Servers", value: formatNumber(data.online_servers) })}
+            ${statCard({
+              label: "Online Players",
+              value: formatNumber(data.online_players),
+              detail: formatPeakDetail(allTimePeak.players),
+            })}
+            ${statCard({
+              label: "Online Servers",
+              value: formatNumber(data.online_servers),
+              detail: formatPeakDetail(allTimePeak.servers),
+            })}
             ${statCard({ label: "Developers Signed Up", value: formatNumber(data.user_count || 0) })}
             ${statCard({ label: "Mods Tracked", value: formatNumber(data.plugin_count || 0) })}
             ${statCard({ label: "Countries", value: formatNumber(countries.length) })}
