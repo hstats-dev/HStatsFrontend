@@ -5,6 +5,7 @@ import { mountOverallStatsPage } from "./pages/overallStatsPage";
 import { mountModsPage } from "./pages/modsPage";
 import { mountModDetailsPage } from "./pages/modDetailsPage";
 import { mountDocumentationPage } from "./pages/documentationPage";
+import { mountBstatsForHytalePage } from "./pages/bstatsForHytalePage";
 import { mountDashboardPage } from "./pages/dashboardPage";
 import { mountAuthPage } from "./pages/authPage";
 import { mountTosPage } from "./pages/tosPage";
@@ -35,6 +36,11 @@ const SEO_MOD_DETAILS = {
 const SEO_DOCS = {
   title: "Documentation",
   description: "Integrate HStats into your Hytale mod and start reporting live usage metrics in minutes.",
+};
+
+const SEO_BSTATS_FOR_HYTALE = {
+  title: "bStats for Hytale",
+  description: "HStats is the bStats equivalent for Hytale mods: same lightweight approach, anonymous server metrics, and fast setup.",
 };
 
 const SEO_DASHBOARD = {
@@ -71,6 +77,9 @@ function resolveRoute(pathname) {
   if (pathname === "/mods") return { mount: mountModsPage, params: {}, requiresAuth: false, seo: SEO_MODS };
   if (pathname === "/docs" || pathname === "/documentation") {
     return { mount: mountDocumentationPage, params: {}, requiresAuth: false, seo: SEO_DOCS };
+  }
+  if (pathname === "/bstats-for-hytale") {
+    return { mount: mountBstatsForHytalePage, params: {}, requiresAuth: false, seo: SEO_BSTATS_FOR_HYTALE };
   }
   if (pathname === "/dashboard") return { mount: mountDashboardPage, params: {}, requiresAuth: true, seo: SEO_DASHBOARD };
   if (pathname === "/auth") return { mount: mountAuthPage, params: {}, requiresAuth: false, seo: SEO_AUTH };

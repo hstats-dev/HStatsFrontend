@@ -66,6 +66,7 @@ export function renderLayout(rootElement, { currentPath, account }) {
               <a class="btn-secondary px-3 py-1.5 text-xs sm:text-sm" href="${FOOTER_DISCORD_URL}" target="_blank" rel="noopener noreferrer">Discord</a>
             </div>
             <div class="flex items-center justify-center gap-3 sm:justify-end">
+              <a href="/bstats-for-hytale" data-link>bStats for Hytale</a>
               <a href="/tos" data-link>TOS</a>
               <a href="/privacy" data-link>Privacy Policy</a>
             </div>

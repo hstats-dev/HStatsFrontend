@@ -50,6 +50,18 @@
           </p>
         </div>
       </section>
+
+      <section class="surface">
+        <div class="surface-body space-y-2">
+          <h2 class="text-lg font-bold text-slate-900">Looking for bStats for Hytale?</h2>
+          <p class="text-sm text-slate-700">
+            Read the full article explaining why HStats is the bStats-style analytics platform for Hytale mods.
+          </p>
+          <a href="/bstats-for-hytale" data-link class="inline-flex items-center rounded-md border border-sky-200 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-sky-50">
+            Open bStats for Hytale Article
+          </a>
+        </div>
+      </section>
     </section>
   `;
 
