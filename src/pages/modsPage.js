@@ -62,14 +62,22 @@ export async function mountModsPage({ container }) {
           totalServers: value?.servers_using || 0,
           totalPlayers: value?.total_players || 0,
         };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      });
   }
 
   function normalizeTotalPages(payload) {
     const value = Number(payload?.pages);
-    if (!Number.isFinite(value) || value < 1) return 1;
-    return Math.floor(value);
+    if (Number.isFinite(value) && value >= 1) return Math.floor(value);
+
+    const plugins = payload?.plugins;
+    if (plugins && typeof plugins === "object") {
+      const entryPages = Object.values(plugins)
+        .map((entry) => Number(entry?.pages))
+        .find((pages) => Number.isFinite(pages) && pages >= 1);
+      if (Number.isFinite(entryPages)) return Math.floor(entryPages);
+    }
+
+    return 1;
   }
 
   function getVisiblePageNumbers(page, pages) {

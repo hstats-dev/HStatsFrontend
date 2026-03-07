@@ -5,6 +5,7 @@ export function registerAccount(email, password, recaptchaToken = "") {
   const body = { email, password };
   if (recaptchaToken) {
     body.recaptcha_token = recaptchaToken;
+    body.recaptchaToken = recaptchaToken;
     body["g-recaptcha-response"] = recaptchaToken;
   }
 

@@ -125,7 +125,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
   const oauthStatus = query.get("oauth_status");
   const oauthError = query.get("oauth_error");
 
-  if (oauthProvider === "discord" && oauthStatus) {
+  if (oauthStatus && (!oauthProvider || oauthProvider === "discord")) {
     const redirectQuery = encodeURIComponent(redirectPath);
     const returnToPath = buildDiscordReturnToPath(redirectPath);
 

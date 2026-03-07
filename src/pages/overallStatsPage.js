@@ -1,4 +1,4 @@
-import { getGlobalStats, getRecentActivity } from "../api/serverApi";
+import { getGlobalHistory, getGlobalStats, getRecentActivity } from "../api/serverApi";
 import { OVERALL_STATS_REFRESH_MS } from "../config";
 import { createChart, paletteFor, sortedCountEntries } from "../components/charts";
 import { statCard } from "../components/statCard";
@@ -93,6 +93,43 @@ function formatPeakDetail(peak) {
     : `All-time peak: ${formatNumber(count)}`;
 }
 
+function normalizeGlobalHistory(payload) {
+  const rawHistory =
+    (Array.isArray(payload) && payload) ||
+    (Array.isArray(payload?.history) && payload.history) ||
+    (Array.isArray(payload?.server_history) && payload.server_history) ||
+    (Array.isArray(payload?.hourly_history) && payload.hourly_history) ||
+    [];
+
+  return rawHistory
+    .map((point, index) => {
+      const timestampSource = point?.hour_start || point?.day || point?.at || "";
+      const timestamp = parseStatsTimestamp(timestampSource);
+      return {
+        _index: index,
+        _timestamp: timestamp,
+        servers: Number(point?.servers_count ?? point?.servers ?? 0) || 0,
+        players: Number(point?.players_count ?? point?.players ?? 0) || 0,
+      };
+    })
+    .sort((a, b) => {
+      if (a._timestamp === null && b._timestamp === null) return a._index - b._index;
+      if (a._timestamp === null) return 1;
+      if (b._timestamp === null) return -1;
+      return a._timestamp - b._timestamp;
+    });
+}
+
+function formatHistoryLabel(point) {
+  if (point?._timestamp === null) return "Unknown";
+  return new Date(point._timestamp).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function normalizeRecentActivity(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.recentActivity)) return payload.recentActivity;
@@ -147,14 +184,45 @@ function renderChartOrEmpty(holder, title, canvasId, hasData) {
     <div class="surface h-full">
       <div class="surface-body">
         <p class="text-sm font-semibold text-slate-800">${title}</p>
-        <div class="mt-4 h-64">
-          <canvas id="${canvasId}"></canvas>
+        <div class="mt-4 h-72 overflow-y-auto rounded-lg border border-sky-100 bg-slate-50/40 p-2">
+          <div data-chart-scroll-inner class="min-h-[18rem]">
+            <canvas id="${canvasId}" class="h-full w-full"></canvas>
+          </div>
         </div>
       </div>
     </div>
   `;
 
   return holder.querySelector("canvas");
+}
+
+function renderLineChartOrEmpty(holder, title, canvasId, hasData) {
+  if (!hasData) {
+    holder.innerHTML = emptyState(title, "No data points are available right now.");
+    return null;
+  }
+
+  holder.innerHTML = `
+    <div class="surface h-full">
+      <div class="surface-body">
+        <p class="text-sm font-semibold text-slate-800">${title}</p>
+        <div class="mt-4 h-80 rounded-lg border border-sky-100 bg-slate-50/40 p-2 sm:h-96">
+          <canvas id="${canvasId}" class="h-full w-full"></canvas>
+        </div>
+      </div>
+    </div>
+  `;
+
+  return holder.querySelector("canvas");
+}
+
+function setScrollableChartHeight(canvas, legendItemCount) {
+  const inner = canvas.closest("[data-chart-scroll-inner]");
+  if (!inner) return;
+  const safeCount = Number.isFinite(legendItemCount) ? Math.max(0, legendItemCount) : 0;
+  const baseHeight = 288;
+  const extraHeight = Math.max(0, safeCount - 10) * 20;
+  inner.style.minHeight = `${baseHeight + extraHeight}px`;
 }
 
 function formatCoreLabel(label) {
@@ -207,7 +275,10 @@ export async function mountOverallStatsPage({ container }) {
 
   async function loadData() {
     try {
-      const data = await getGlobalStats();
+      const [data, historyPayload] = await Promise.all([
+        getGlobalStats(),
+        getGlobalHistory({ days: 30 }).catch(() => ({ history: [] })),
+      ]);
       if (isDisposed) return;
 
       const countries = sortedCountEntries(data.countries);
@@ -215,6 +286,7 @@ export async function mountOverallStatsPage({ container }) {
       const javaVersions = sortedCountEntries(data.java_versions);
       const coreCounts = sortedCountEntries(data.core_count);
       const allTimePeak = data.all_time_peak || {};
+      const history = normalizeGlobalHistory(historyPayload);
 
       content.innerHTML = `
         <div class="space-y-8">
@@ -234,17 +306,26 @@ export async function mountOverallStatsPage({ container }) {
             ${statCard({ label: "Countries", value: formatNumber(countries.length) })}
             ${statCard({ label: "OS Families", value: formatNumber(osNames.length) })}
           </section>
-          <section class="grid gap-6 lg:grid-cols-4">
-            <div id="overall-countries"></div>
-            <div id="overall-os"></div>
-            <div id="overall-java"></div>
-            <div id="overall-cores"></div>
+          <section class="space-y-6">
+            <div id="overall-history"></div>
+            <div class="grid gap-6 lg:grid-cols-4">
+              <div id="overall-countries"></div>
+              <div id="overall-os"></div>
+              <div id="overall-java"></div>
+              <div id="overall-cores"></div>
+            </div>
           </section>
         </div>
       `;
 
       clearCharts();
 
+      const historyCanvas = renderLineChartOrEmpty(
+        content.querySelector("#overall-history"),
+        "Global Servers and Players History (Hourly)",
+        "overall-history-canvas",
+        history.length > 0,
+      );
       const countriesCanvas = renderChartOrEmpty(
         content.querySelector("#overall-countries"),
         "Country Distribution",
@@ -270,7 +351,47 @@ export async function mountOverallStatsPage({ container }) {
         coreCounts.length > 0,
       );
 
+      if (historyCanvas) {
+        chartInstances.push(
+          createChart(historyCanvas, {
+            type: "line",
+            data: {
+              labels: history.map((point) => formatHistoryLabel(point)),
+              datasets: [
+                {
+                  label: "Servers",
+                  data: history.map((point) => point.servers),
+                  borderColor: "#ff2d2d",
+                  backgroundColor: "rgba(255, 45, 45, 0.2)",
+                  fill: true,
+                  tension: 0.35,
+                },
+                {
+                  label: "Players",
+                  data: history.map((point) => point.players),
+                  borderColor: "#79ea00",
+                  backgroundColor: "rgba(132, 255, 0, 0.2)",
+                  fill: true,
+                  tension: 0.35,
+                },
+              ],
+            },
+            options: {
+              scales: {
+                x: {
+                  ticks: {
+                    autoSkip: true,
+                    maxTicksLimit: 10,
+                  },
+                },
+              },
+            },
+          }),
+        );
+      }
+
       if (countriesCanvas) {
+        setScrollableChartHeight(countriesCanvas, countries.length);
         chartInstances.push(
           createChart(countriesCanvas, {
             type: "pie",
@@ -288,6 +409,7 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (osCanvas) {
+        setScrollableChartHeight(osCanvas, osNames.length);
         chartInstances.push(
           createChart(osCanvas, {
             type: "bar",
@@ -314,6 +436,7 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (javaCanvas) {
+        setScrollableChartHeight(javaCanvas, javaVersions.length);
         chartInstances.push(
           createChart(javaCanvas, {
             type: "bar",
@@ -339,6 +462,7 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (coreCanvas) {
+        setScrollableChartHeight(coreCanvas, coreCounts.length);
         chartInstances.push(
           createChart(coreCanvas, {
             type: "pie",
