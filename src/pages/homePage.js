@@ -41,10 +41,6 @@ export async function mountHomePage({ container }) {
                   Documentation
                 </a>
               </div>
-              <p class="mt-3 text-sm text-slate-600">
-                Looking for bStats for Hytale? Read the article:
-                <a href="/bstats-for-hytale" data-link class="font-semibold text-brand-700">bStats for Hytale</a>
-              </p>
             </div>
             <aside id="home-community-stats" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 lg:h-full">
               <article class="h-full rounded-xl border border-sky-200 bg-white">
