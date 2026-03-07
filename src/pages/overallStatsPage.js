@@ -184,10 +184,8 @@ function renderChartOrEmpty(holder, title, canvasId, hasData) {
     <div class="surface h-full">
       <div class="surface-body">
         <p class="text-sm font-semibold text-slate-800">${title}</p>
-        <div class="mt-4 h-72 overflow-y-auto rounded-lg border border-sky-100 bg-slate-50/40 p-2">
-          <div data-chart-scroll-inner class="min-h-[18rem]">
-            <canvas id="${canvasId}" class="h-full w-full"></canvas>
-          </div>
+        <div class="mt-4 h-64">
+          <canvas id="${canvasId}"></canvas>
         </div>
       </div>
     </div>
@@ -214,15 +212,6 @@ function renderLineChartOrEmpty(holder, title, canvasId, hasData) {
   `;
 
   return holder.querySelector("canvas");
-}
-
-function setScrollableChartHeight(canvas, legendItemCount) {
-  const inner = canvas.closest("[data-chart-scroll-inner]");
-  if (!inner) return;
-  const safeCount = Number.isFinite(legendItemCount) ? Math.max(0, legendItemCount) : 0;
-  const baseHeight = 288;
-  const extraHeight = Math.max(0, safeCount - 10) * 20;
-  inner.style.minHeight = `${baseHeight + extraHeight}px`;
 }
 
 function formatCoreLabel(label) {
@@ -391,7 +380,6 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (countriesCanvas) {
-        setScrollableChartHeight(countriesCanvas, countries.length);
         chartInstances.push(
           createChart(countriesCanvas, {
             type: "pie",
@@ -409,7 +397,6 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (osCanvas) {
-        setScrollableChartHeight(osCanvas, osNames.length);
         chartInstances.push(
           createChart(osCanvas, {
             type: "bar",
@@ -436,7 +423,6 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (javaCanvas) {
-        setScrollableChartHeight(javaCanvas, javaVersions.length);
         chartInstances.push(
           createChart(javaCanvas, {
             type: "bar",
@@ -462,7 +448,6 @@ export async function mountOverallStatsPage({ container }) {
       }
 
       if (coreCanvas) {
-        setScrollableChartHeight(coreCanvas, coreCounts.length);
         chartInstances.push(
           createChart(coreCanvas, {
             type: "pie",
