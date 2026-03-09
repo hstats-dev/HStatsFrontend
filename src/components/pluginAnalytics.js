@@ -12,6 +12,7 @@ const DEFAULT_EMBED_OPTIONS = {
   size: "md",
   dark: false,
 };
+const VERSION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const EASTERN_TIME_ZONE = "America/New_York";
 const HAS_EXPLICIT_TIMEZONE = /(Z|[+-]\d{2}:\d{2})$/i;
 
@@ -124,6 +125,65 @@ function normalizeVersionEntries(versions) {
   }
 
   return [];
+}
+
+function normalizeCoPlugins(coPlugins, currentPluginUuid) {
+  if (!Array.isArray(coPlugins)) return [];
+
+  return coPlugins
+    .map((item) => ({
+      name: String(item?.name || "").trim() || "Unknown mod",
+      uuid: String(item?.uuid || "").trim(),
+      timesSeen: Number(item?.times_seen) || 0,
+    }))
+    .filter((item) => item.uuid && item.uuid !== currentPluginUuid)
+    .slice(0, 10);
+}
+
+function compareVersionsDesc(a, b) {
+  return VERSION_COLLATOR.compare(String(b || ""), String(a || ""));
+}
+
+function sortVersionEntries(entries, mode = "count") {
+  const sorted = [...entries];
+  if (mode === "version") {
+    sorted.sort((a, b) => {
+      const byVersion = compareVersionsDesc(a[0], b[0]);
+      if (byVersion !== 0) return byVersion;
+      return (Number(b[1]) || 0) - (Number(a[1]) || 0);
+    });
+    return sorted;
+  }
+
+  sorted.sort((a, b) => {
+    const aCount = Number(a[1]);
+    const bCount = Number(b[1]);
+    const aHasCount = Number.isFinite(aCount) && a[1] !== null;
+    const bHasCount = Number.isFinite(bCount) && b[1] !== null;
+
+    if (aHasCount && bHasCount && aCount !== bCount) {
+      return bCount - aCount;
+    }
+    if (aHasCount !== bHasCount) {
+      return aHasCount ? -1 : 1;
+    }
+    return compareVersionsDesc(a[0], b[0]);
+  });
+
+  return sorted;
+}
+
+function renderVersionBadge([version, count]) {
+  if (count === null) {
+    return `<span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-brand-700">${escapeHtml(version)}</span>`;
+  }
+
+  return `
+    <span class="inline-flex items-center overflow-hidden rounded-full border border-sky-200 text-xs font-semibold">
+      <span class="bg-sky-100 px-3 py-1 text-brand-700">${escapeHtml(version)}</span>
+      <span class="bg-lime-100 px-2.5 py-1 text-lime-800">${escapeHtml(formatNumber(count))}</span>
+    </span>
+  `;
 }
 
 function formatCoreLabel(label) {
@@ -266,6 +326,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const osNames = sortedCountEntries(pluginInfo.os_names);
   const coreCounts = sortedCountEntries(pluginInfo.core_count || pluginInfo.core_counts);
   const versionEntries = normalizeVersionEntries(pluginInfo.versions);
+  const coPlugins = normalizeCoPlugins(pluginInfo.co_plugins, pluginUuid);
   const allTimePeak = pluginInfo.all_time_peak || {};
   const pluginName = pluginInfo.name || "Unknown";
 
@@ -321,24 +382,52 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
 
       <section class="surface">
         <div class="surface-body">
-          <p class="text-sm font-semibold text-slate-800">Known Versions</p>
+          <div class="inline-flex rounded-lg border border-sky-200 bg-sky-50 p-1">
+            <button
+              type="button"
+              data-version-sort="count"
+              class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-sm"
+              aria-pressed="true"
+              ${versionEntries.length === 0 ? "disabled" : ""}
+            >
+              By Usage
+            </button>
+            <button
+              type="button"
+              data-version-sort="version"
+              class="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:text-slate-900"
+              aria-pressed="false"
+              ${versionEntries.length === 0 ? "disabled" : ""}
+            >
+              By Version
+            </button>
+          </div>
+          <p class="mt-3 text-sm font-semibold text-slate-800">Known Versions</p>
+          <div id="plugin-versions-list" class="mt-3 flex flex-wrap gap-2"></div>
+        </div>
+      </section>
+
+      <section class="surface">
+        <div class="surface-body">
+          <p class="text-sm font-semibold text-slate-800">Mods Installed Together</p>
           <div class="mt-3 flex flex-wrap gap-2">
             ${
-              versionEntries.length > 0
-                ? versionEntries
+              coPlugins.length > 0
+                ? coPlugins
                     .map(
-                      ([version, count]) =>
-                        count === null
-                          ? `<span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-brand-700">${escapeHtml(version)}</span>`
-                          : `
-                            <span class="inline-flex items-center overflow-hidden rounded-full border border-sky-200 text-xs font-semibold">
-                              <span class="bg-sky-100 px-3 py-1 text-brand-700">${escapeHtml(version)}</span>
-                              <span class="bg-lime-100 px-2.5 py-1 text-lime-800">${escapeHtml(formatNumber(count))}</span>
-                            </span>
-                          `,
+                      (item) => `
+                        <a
+                          href="/mods/${encodeURIComponent(item.uuid)}"
+                          data-link
+                          class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-sky-300 hover:bg-sky-50"
+                        >
+                          <span class="text-brand-700">${escapeHtml(item.name)}</span>
+                          <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">${escapeHtml(formatNumber(item.timesSeen))}</span>
+                        </a>
+                      `,
                     )
                     .join("")
-                : `<span class="text-sm text-slate-600">No versions reported yet.</span>`
+                : `<span class="text-sm text-slate-600">No co-install data reported yet.</span>`
             }
           </div>
         </div>
@@ -358,6 +447,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const chartInstances = [];
   const listenersCleanup = [];
   let copyStatusTimeout = null;
+  let versionSortMode = "count";
 
   const historyCanvas = renderCanvasOrEmpty(
     container.querySelector("#plugin-history-holder"),
@@ -398,12 +488,45 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const urlOutput = container.querySelector("#embed-url-output");
   const copyUrlButton = container.querySelector("#embed-copy-url");
   const copyStatus = container.querySelector("#embed-copy-status");
+  const versionsList = container.querySelector("#plugin-versions-list");
+  const versionSortButtons = Array.from(container.querySelectorAll("button[data-version-sort]"));
 
   const bindListener = (element, eventName, handler) => {
     if (!element) return;
     element.addEventListener(eventName, handler);
     listenersCleanup.push(() => element.removeEventListener(eventName, handler));
   };
+
+  const renderVersions = () => {
+    if (!versionsList) return;
+
+    if (versionEntries.length === 0) {
+      versionsList.innerHTML = `<span class="text-sm text-slate-600">No versions reported yet.</span>`;
+      return;
+    }
+
+    const sortedEntries = sortVersionEntries(versionEntries, versionSortMode);
+    versionsList.innerHTML = sortedEntries.map((entry) => renderVersionBadge(entry)).join("");
+
+    versionSortButtons.forEach((button) => {
+      const mode = button.getAttribute("data-version-sort");
+      const isActive = mode === versionSortMode;
+      button.className = isActive
+        ? "rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-brand-700 shadow-sm"
+        : "rounded-md px-2.5 py-1 text-xs font-semibold text-slate-600 transition hover:text-slate-900";
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  };
+
+  versionSortButtons.forEach((button) => {
+    bindListener(button, "click", () => {
+      const mode = button.getAttribute("data-version-sort");
+      if (!mode || mode === versionSortMode) return;
+      versionSortMode = mode === "version" ? "version" : "count";
+      renderVersions();
+    });
+  });
+  renderVersions();
 
   if (
     themeSelect &&
