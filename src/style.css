@@ -130,8 +130,102 @@
     animation: dashboardPulse 420ms ease-out;
   }
 
+  .dashboard-hero {
+    @apply bg-gradient-to-br from-sky-50 via-white to-slate-50;
+  }
+
+  .dashboard-hero-stat {
+    @apply rounded-xl border border-sky-100 bg-white/85 px-4 py-3 shadow-soft;
+  }
+
+  .dashboard-hero-label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-slate-500;
+  }
+
+  .dashboard-hero-value {
+    @apply text-slate-900;
+  }
+
+  .dashboard-hero-icon-button {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-white text-slate-600 transition hover:border-sky-300 hover:bg-sky-50 hover:text-brand-700;
+  }
+
+  .dashboard-mod-list-item {
+    @apply rounded-xl border border-sky-100 bg-white;
+  }
+
+  .dashboard-mod-list-item-selected {
+    @apply border-sky-300 bg-sky-50/80 shadow-soft;
+  }
+
+  .dashboard-mod-list-select:hover {
+    @apply bg-sky-50;
+  }
+
+  .dashboard-mod-list-name {
+    @apply text-slate-900;
+  }
+
+  .dashboard-mod-list-id {
+    @apply text-slate-600;
+  }
+
   html.dark .surface {
     @apply border-slate-700 bg-slate-800 shadow-none;
+  }
+
+  html.dark .dashboard-hero {
+    background-image: linear-gradient(135deg, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42));
+  }
+
+  html.dark .dashboard-hero-stat {
+    @apply border-slate-700 bg-slate-900/70 shadow-none;
+  }
+
+  html.dark .dashboard-hero-label {
+    color: rgb(148 163 184);
+  }
+
+  html.dark .dashboard-hero-value {
+    color: rgb(241 245 249);
+  }
+
+  html.dark .dashboard-hero-icon-button {
+    border-color: rgb(71 85 105);
+    background-color: rgb(30 41 59);
+    color: rgb(203 213 225);
+  }
+
+  html.dark .dashboard-hero-icon-button:hover {
+    border-color: rgb(100 116 139);
+    background-color: rgb(51 65 85);
+    color: rgb(186 230 253);
+  }
+
+  html.dark .dashboard-mod-list-item {
+    @apply border-slate-700 bg-slate-800;
+  }
+
+  html.dark .dashboard-mod-list-item-selected {
+    border-color: rgb(14 165 233);
+    background-color: rgb(12 74 110 / 0.35);
+    box-shadow: inset 0 0 0 1px rgb(56 189 248 / 0.18);
+  }
+
+  html.dark .dashboard-mod-list-select:hover {
+    background-color: rgb(51 65 85 / 0.7);
+  }
+
+  html.dark .dashboard-mod-list-item-selected .dashboard-mod-list-select:hover {
+    background-color: rgb(12 74 110 / 0.5);
+  }
+
+  html.dark .dashboard-mod-list-name {
+    color: rgb(248 250 252);
+  }
+
+  html.dark .dashboard-mod-list-id {
+    color: rgb(186 230 253);
   }
 
   html.dark .btn-secondary {
