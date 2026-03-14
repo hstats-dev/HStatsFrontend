@@ -261,7 +261,7 @@ function renderIntegrationTab() {
   return `
     <div id="docs-tab-integration" class="space-y-6">
       <section class="surface overflow-hidden">
-        <div class="surface-body bg-gradient-to-br from-sky-50 via-white to-slate-50">
+        <div class="docs-hero surface-body">
           <div class="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div class="space-y-4">
               <div>
@@ -272,7 +272,7 @@ function renderIntegrationTab() {
                 </p>
               </div>
             </div>
-            <div class="rounded-2xl border border-sky-100 bg-white/90 p-4 shadow-soft">
+            <div class="docs-hero-panel rounded-2xl p-4">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick Start</p>
               <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-slate-700">
                 <li>Download the <code>HStats</code> class file.</li>
@@ -299,7 +299,7 @@ function renderIntegrationTab() {
               href="https://github.com/al3xwarrior/HStatsExamplePlugin/blob/main/src/main/java/com/al3x/HStats.java"
               target="_blank"
               rel="noreferrer"
-              class="inline-flex items-center rounded-md border border-sky-200 px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-sky-50"
+              class="btn-secondary inline-flex items-center px-3 py-2"
             >
               Open HStats Class on GitHub
             </a>
@@ -340,22 +340,22 @@ function renderIntegrationTab() {
         </section>
       </section>
 
-      <section class="surface border-red-200 bg-red-50">
+      <section class="docs-warning-card docs-warning-card-danger surface">
         <div class="surface-body space-y-2">
-          <h3 class="text-lg font-bold text-red-900">Private Key Reminder</h3>
-          <p class="text-sm text-red-800">
+          <h3 class="docs-warning-title text-lg font-bold">Private Key Reminder</h3>
+          <p class="docs-warning-text text-sm">
             Keep the server reporting key private. It is used by your server to submit stats and should not be shared in public pages or repositories.
           </p>
         </div>
       </section>
 
-      <section class="surface border-amber-200 bg-amber-50">
+      <section class="docs-warning-card docs-warning-card-amber surface">
         <div class="surface-body space-y-2">
-          <h3 class="text-lg font-bold text-amber-900">Important Policy Notice</h3>
-          <p class="text-sm text-amber-800">
+          <h3 class="docs-warning-title text-lg font-bold">Important Policy Notice</h3>
+          <p class="docs-warning-text text-sm">
             Modifying the HStats class file, except changing the package name, is not allowed. Doing so may result in a ban of your account and mod from HStats.
           </p>
-          <p class="text-sm text-amber-800">
+          <p class="docs-warning-text text-sm">
             It also harms your own analytics quality, since HStats exists to help you understand real mod usage.
           </p>
         </div>
@@ -370,7 +370,7 @@ function renderEndpointSummaryCard(endpoint) {
       type="button"
       data-action="jump-endpoint"
       data-target="endpoint-${endpoint.id}"
-      class="group rounded-2xl border border-sky-100 bg-gradient-to-br from-white via-slate-50 to-sky-50 px-4 py-4 text-left transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-soft"
+      class="docs-endpoint-summary group rounded-2xl px-4 py-4 text-left transition hover:-translate-y-0.5"
     >
       <div class="flex items-start justify-between gap-3">
         <div>
@@ -380,8 +380,8 @@ function renderEndpointSummaryCard(endpoint) {
           <p class="mt-1 text-xs font-medium text-slate-500">${escapeHtml(renderRateLimitSentence(endpoint))}</p>
         </div>
         <div class="flex items-center gap-1 pt-0.5">
-          ${endpoint.deprecated ? `<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Deprecated</span>` : ""}
-          <span class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-white text-brand-700 transition group-hover:border-sky-300 group-hover:bg-sky-50">
+          ${endpoint.deprecated ? `<span class="docs-deprecated-badge rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Deprecated</span>` : ""}
+          <span class="docs-endpoint-arrow inline-flex h-8 w-8 items-center justify-center rounded-full transition">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
               <path d="M7 12h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               <path d="m13 6 6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -415,28 +415,28 @@ function renderEndpointCard(endpoint) {
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base font-bold text-slate-900"><code>${escapeHtml(endpoint.route)}</code></h3>
-              ${endpoint.deprecated ? `<span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Deprecated</span>` : ""}
+               ${endpoint.deprecated ? `<span class="docs-deprecated-badge rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">Deprecated</span>` : ""}
               ${endpoint.rateLimit ? `<span class="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-700">${escapeHtml(RATE_LIMITS[endpoint.rateLimit])}</span>` : ""}
             </div>
             <p class="mt-2 text-sm text-slate-700">${escapeHtml(endpoint.summary)}</p>
             <p class="mt-2 text-sm text-slate-600">${renderInlineCodeText(renderParamsSentence(endpoint))}</p>
             ${
               endpoint.deprecated
-                ? `<p class="mt-2 text-sm font-medium text-amber-800">This endpoint is deprecated and will be removed in a future update. Avoid building new integrations around it.</p>`
+                ? `<p class="docs-deprecated-text mt-2 text-sm font-medium">This endpoint is deprecated and will be removed in a future update. Avoid building new integrations around it.</p>`
                 : ""
             }
           </div>
         </div>
         ${notesMarkup}
         ${renderCurlSnippet(endpoint.curl)}
-        <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
+        <div class="docs-example-panel rounded-xl p-3">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">${escapeHtml(endpoint.json ? "JSON Example" : endpoint.extraLabel || "Example")}</p>
             <button
               type="button"
               data-action="toggle-example"
               data-target="example-${endpoint.id}"
-              class="rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-sky-50"
+              class="btn-secondary rounded-lg px-3 py-1.5 text-xs font-semibold"
               aria-expanded="false"
             >
               Show ${escapeHtml(endpoint.json ? "JSON" : endpoint.extraLabel || "Example")}
@@ -455,7 +455,7 @@ function renderStatsApiTab() {
   return `
     <div id="docs-tab-stats" class="hidden space-y-6">
       <section class="surface overflow-hidden">
-        <div class="surface-body bg-gradient-to-br from-white via-slate-50 to-sky-50">
+        <div class="docs-hero surface-body">
           <div class="grid gap-4 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
             <div>
               <p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">HStats Stats API</p>
@@ -464,7 +464,7 @@ function renderStatsApiTab() {
                 Use these endpoints to power custom sites, overlays, bots, or dashboards with HStats network and mod analytics.
               </p>
             </div>
-            <div class="rounded-2xl border border-sky-100 bg-white/90 p-4 shadow-soft">
+            <div class="docs-hero-panel rounded-2xl p-4">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Base URL</p>
               <p class="mt-2 font-mono text-sm font-bold text-slate-900">${PUBLIC_API_BASE_DISPLAY}</p>
               <p class="mt-2 text-sm text-slate-600">All endpoints in this section are public GET requests.</p>
@@ -500,11 +500,11 @@ export async function mountDocumentationPage({ container }) {
           <h1 class="section-title">Documentation</h1>
           <p class="muted mt-1">Use HStats inside your mod, or build against the public stats API.</p>
         </div>
-        <div class="inline-flex rounded-xl border border-sky-200 bg-sky-50 p-1">
+        <div class="docs-tab-switcher inline-flex rounded-xl p-1">
           <button
             type="button"
             data-docs-tab="integration"
-            class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm"
+            class="docs-tab-button docs-tab-button-active rounded-lg px-4 py-2 text-sm font-semibold"
             aria-pressed="true"
           >
             HStats Class API
@@ -512,7 +512,7 @@ export async function mountDocumentationPage({ container }) {
           <button
             type="button"
             data-docs-tab="stats"
-            class="rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900"
+            class="docs-tab-button rounded-lg px-4 py-2 text-sm font-semibold"
             aria-pressed="false"
           >
             HStats Stats API
@@ -545,8 +545,8 @@ export async function mountDocumentationPage({ container }) {
     tabButtons.forEach((button) => {
       const isActive = button.getAttribute("data-docs-tab") === (showIntegration ? "integration" : "stats");
       button.className = isActive
-        ? "rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-700 shadow-sm"
-        : "rounded-lg px-4 py-2 text-sm font-semibold text-slate-600 transition hover:text-slate-900";
+        ? "docs-tab-button docs-tab-button-active rounded-lg px-4 py-2 text-sm font-semibold"
+        : "docs-tab-button rounded-lg px-4 py-2 text-sm font-semibold";
       button.setAttribute("aria-pressed", isActive ? "true" : "false");
     });
   };
