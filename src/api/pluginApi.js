@@ -20,6 +20,17 @@ export function getPluginInfo(pluginUuid, signal) {
   });
 }
 
+export function applyPluginLinks(pluginUuid, githubLink, curseforgeLink) {
+  return apiRequest("/plugin/apply-plugin-links", {
+    method: "POST",
+    body: {
+      plugin_uuid: pluginUuid,
+      github_link: githubLink,
+      curseforge_link: curseforgeLink,
+    },
+  });
+}
+
 export function listPlugins(searchOrOptions = "", signal) {
   let search = "";
   let page = 1;

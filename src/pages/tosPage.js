@@ -11,7 +11,7 @@
             By using HStats, you agree to provide accurate mod metadata, avoid abuse, and follow all applicable laws.
           </p>
           <p>
-            You are responsible for your account security and for actions performed using your account or mod UUIDs.
+            You are responsible for your account security and for actions performed using your account, public Mod IDs, or private server reporting keys.
           </p>
           <p>
             Attempting to manipulate, tamper with, or reverse engineer the HStats data collection flow may lead to account and mod suspension.

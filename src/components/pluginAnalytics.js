@@ -1,4 +1,5 @@
 import { API_ROOT } from "../config";
+import { applyPluginLinks } from "../api/pluginApi";
 import { createChart, paletteFor, sortedCountEntries } from "./charts";
 import { statCard } from "./statCard";
 import { emptyState } from "./emptyState";
@@ -136,8 +137,28 @@ function normalizeCoPlugins(coPlugins, currentPluginUuid) {
       uuid: String(item?.uuid || "").trim(),
       timesSeen: Number(item?.times_seen) || 0,
     }))
-    .filter((item) => item.uuid && item.uuid !== currentPluginUuid)
-    .slice(0, 10);
+    .filter((item) => item.uuid && item.uuid !== currentPluginUuid);
+}
+
+function renderCoPluginItem(item) {
+  return `
+    <a
+      href="/mods/${encodeURIComponent(item.uuid)}"
+      data-link
+      class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-sky-300 hover:bg-sky-50"
+    >
+      <span class="text-brand-700">${escapeHtml(item.name)}</span>
+      <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">${escapeHtml(formatNumber(item.timesSeen))}</span>
+    </a>
+  `;
+}
+
+function resolveDeveloperId(developerInfo) {
+  const accountId = developerInfo?.account?.id;
+  const directId = developerInfo?.id;
+  const idValue = accountId || directId;
+  if (!idValue) return "";
+  return String(idValue).trim();
 }
 
 function compareVersionsDesc(a, b) {
@@ -319,7 +340,19 @@ function renderEmbedCardControls(pluginUuid, pluginName) {
   `;
 }
 
-export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, developerInfo, showUuid = true }) {
+export function renderPluginAnalytics(
+  container,
+  {
+    pluginUuid,
+    privatePluginUuid = "",
+    pluginInfo,
+    developerInfo,
+    showUuid = true,
+    editablePluginLinks = false,
+    onPluginLinksSaved = null,
+    onNotify = null,
+  },
+) {
   const history = normalizePluginHistory(Array.isArray(pluginInfo.history) ? pluginInfo.history : []);
   const countries = sortedCountEntries(pluginInfo.countries);
   const javaVersions = sortedCountEntries(pluginInfo.java_versions);
@@ -327,46 +360,109 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const coreCounts = sortedCountEntries(pluginInfo.core_count || pluginInfo.core_counts);
   const versionEntries = normalizeVersionEntries(pluginInfo.versions);
   const coPlugins = normalizeCoPlugins(pluginInfo.co_plugins, pluginUuid);
+  const developerId = resolveDeveloperId(developerInfo);
   const allTimePeak = pluginInfo.all_time_peak || {};
   const pluginName = pluginInfo.name || "Unknown";
-
-  container.innerHTML = `
-    <div class="space-y-6">
-      <section class="grid gap-4 lg:grid-cols-2">
-        <article class="surface">
-          <div class="surface-body">
-            <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Mod</p>
-            <p class="mt-2 text-2xl font-extrabold text-slate-900">${escapeHtml(pluginName)}</p>
-            ${
-              showUuid
-                ? `
-                  <div class="mt-2 flex flex-wrap items-center gap-2">
-                    <p class="font-mono text-[11px] text-slate-600">${escapeHtml(pluginUuid)}</p>
+  const pluginLinks = pluginInfo.links && typeof pluginInfo.links === "object"
+    ? pluginInfo.links
+    : {
+        github_link: pluginInfo.github_link || "",
+        curseforge_link: pluginInfo.curseforge_link || "",
+      };
+  const linkDisplayInfo = {
+    ...(developerInfo || {}),
+    links: pluginLinks,
+  };
+  const dashboardSettingsMarkup = `
+    <section class="surface">
+      <div class="surface-body space-y-4">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Mod Settings</p>
+          <p class="mt-2 text-2xl font-extrabold text-slate-900">${escapeHtml(pluginName)}</p>
+        </div>
+        <div class="space-y-3 rounded-xl border border-sky-100 bg-slate-50 p-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mod ID</span>
+            <p class="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-700">${escapeHtml(pluginUuid)}</p>
+            <button
+              class="btn-secondary px-3 py-1.5 text-xs"
+              data-copy-value="${escapeHtml(pluginUuid)}"
+              data-copy-label="Mod ID"
+              type="button"
+            >
+              Copy Mod ID
+            </button>
+          </div>
+          ${
+            privatePluginUuid
+              ? `
+                <div class="rounded-lg border border-red-300/70 bg-slate-900/[0.03] p-2.5">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-[11px] font-semibold uppercase tracking-wide text-red-700">Server Reporting Key (Private)</span>
                     <button
-                      class="btn-secondary px-3 py-1.5 text-xs"
-                      data-action="copy-plugin-uuid"
-                      data-uuid="${escapeHtml(pluginUuid)}"
+                      class="rounded-lg border border-red-300/70 bg-slate-900/[0.04] px-2.5 py-1 text-[11px] font-semibold text-red-700 transition hover:bg-slate-900/[0.08]"
+                      data-copy-value="${escapeHtml(privatePluginUuid)}"
+                      data-copy-label="Server Reporting Key"
                       type="button"
                     >
-                      Copy UUID
+                      Copy
                     </button>
+                    <span class="text-[11px] text-slate-600">Keep this private. Used in your mod's code to report stats.</span>
                   </div>
-                `
-                : ""
-            }
-            ${
-              developerInfo === undefined
-                ? ""
-                : `
-                  <div class="mt-4">
-                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Developer</p>
-                    ${renderDeveloperButtons(developerInfo)}
-                  </div>
-                `
-            }
+                  <div
+                    data-private-plugin-uuid
+                    role="button"
+                    tabindex="0"
+                    aria-expanded="false"
+                    class="mt-2 overflow-x-auto whitespace-nowrap rounded-md border border-red-200/70 bg-slate-900/[0.05] px-2 py-1.5 font-mono text-[11px] text-slate-700 blur-[4px] select-none transition cursor-pointer"
+                  >${escapeHtml(privatePluginUuid)}</div>
+                </div>
+              `
+              : ""
+          }
+        </div>
+        <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Links</p>
+              <p class="mt-1 text-xs text-slate-600">These links appear on the mod page and in public listings.</p>
+            </div>
+            <button id="plugin-links-submit" type="submit" form="plugin-links-form" class="btn-secondary self-start">Save</button>
           </div>
-        </article>
-        <div class="grid gap-4 sm:grid-cols-2">
+          <form id="plugin-links-form" class="mt-3 grid gap-2">
+            <label class="grid gap-1 text-xs font-semibold text-slate-600">
+              GitHub Link
+              <input
+                id="plugin-github-link"
+                type="url"
+                class="input-base"
+                placeholder="https://github.com/example/repo"
+                value="${escapeHtml(pluginLinks.github_link || "")}"
+              />
+            </label>
+            <label class="grid gap-1 text-xs font-semibold text-slate-600">
+              CurseForge Link
+              <input
+                id="plugin-curseforge-link"
+                type="url"
+                class="input-base"
+                placeholder="https://www.curseforge.com/hytale/mods/example"
+                value="${escapeHtml(pluginLinks.curseforge_link || "")}"
+              />
+            </label>
+          </form>
+        </div>
+      </div>
+    </section>
+  `;
+  const dashboardStatsMarkup = `
+    <section class="surface">
+      <div class="surface-body space-y-4">
+        <div>
+          <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Stats</p>
+          <p class="mt-1 text-sm text-slate-600">Current totals and all-time peaks for this mod.</p>
+        </div>
+        <div class="grid gap-4 md:grid-cols-2">
           ${statCard({
             label: "Active Servers",
             value: formatNumber(pluginInfo.total_servers),
@@ -378,7 +474,85 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
             detail: formatPeakDetail(allTimePeak.players),
           })}
         </div>
-      </section>
+      </div>
+    </section>
+  `;
+
+  container.innerHTML = `
+    <div class="space-y-6">
+      ${
+        editablePluginLinks
+          ? `${dashboardSettingsMarkup}${dashboardStatsMarkup}`
+          : `
+            <section class="grid items-start gap-4 lg:grid-cols-2">
+              <article class="surface">
+                <div class="surface-body">
+                  <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Mod</p>
+                  <p class="mt-2 text-2xl font-extrabold text-slate-900">${escapeHtml(pluginName)}</p>
+                  ${
+                    showUuid
+                      ? `
+                        <div class="mt-3 space-y-2 rounded-xl border border-sky-100 bg-slate-50 p-3">
+                          <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mod ID</span>
+                            <p class="min-w-0 flex-1 truncate font-mono text-[11px] text-slate-700">${escapeHtml(pluginUuid)}</p>
+                            <button
+                              class="btn-secondary px-3 py-1.5 text-xs"
+                              data-copy-value="${escapeHtml(pluginUuid)}"
+                              data-copy-label="Mod ID"
+                              type="button"
+                            >
+                              Copy Mod ID
+                            </button>
+                          </div>
+                        </div>
+                      `
+                      : ""
+                  }
+                  ${
+                    developerInfo === undefined
+                      ? ""
+                      : `
+                        <div class="mt-4">
+                          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Developer</p>
+                          ${
+                            developerId
+                              ? `
+                                <a
+                                  href="/developers/${encodeURIComponent(developerId)}"
+                                  data-link
+                                  class="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-soft transition hover:bg-brand-700 hover:text-white"
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true" class="h-3.5 w-3.5" fill="none">
+                                    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" />
+                                    <path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                  </svg>
+                                  <span>View Developer Profile</span>
+                                </a>
+                              `
+                              : ""
+                          }
+                          ${renderDeveloperButtons(linkDisplayInfo)}
+                        </div>
+                      `
+                  }
+                </div>
+              </article>
+              <div class="grid self-start gap-4">
+                ${statCard({
+                  label: "Active Servers",
+                  value: formatNumber(pluginInfo.total_servers),
+                  detail: formatPeakDetail(allTimePeak.servers),
+                })}
+                ${statCard({
+                  label: "Total Players",
+                  value: formatNumber(pluginInfo.total_players),
+                  detail: formatPeakDetail(allTimePeak.players),
+                })}
+              </div>
+            </section>
+          `
+      }
 
       <section class="surface">
         <div class="surface-body">
@@ -410,25 +584,17 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
       <section class="surface">
         <div class="surface-body">
           <p class="text-sm font-semibold text-slate-800">Mods Installed Together</p>
-          <div class="mt-3 flex flex-wrap gap-2">
-            ${
-              coPlugins.length > 0
-                ? coPlugins
-                    .map(
-                      (item) => `
-                        <a
-                          href="/mods/${encodeURIComponent(item.uuid)}"
-                          data-link
-                          class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-800 transition hover:border-sky-300 hover:bg-sky-50"
-                        >
-                          <span class="text-brand-700">${escapeHtml(item.name)}</span>
-                          <span class="rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">${escapeHtml(formatNumber(item.timesSeen))}</span>
-                        </a>
-                      `,
-                    )
-                    .join("")
-                : `<span class="text-sm text-slate-600">No co-install data reported yet.</span>`
-            }
+          <div id="plugin-co-plugins-list" class="mt-3 flex flex-wrap gap-2">
+          </div>
+          <div class="mt-3">
+            <button
+              type="button"
+              data-action="toggle-co-plugins"
+              class="hidden rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-sky-100"
+              aria-expanded="false"
+            >
+              Show More
+            </button>
           </div>
         </div>
       </section>
@@ -448,6 +614,7 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const listenersCleanup = [];
   let copyStatusTimeout = null;
   let versionSortMode = "count";
+  let coPluginsExpanded = false;
 
   const historyCanvas = renderCanvasOrEmpty(
     container.querySelector("#plugin-history-holder"),
@@ -490,6 +657,13 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
   const copyStatus = container.querySelector("#embed-copy-status");
   const versionsList = container.querySelector("#plugin-versions-list");
   const versionSortButtons = Array.from(container.querySelectorAll("button[data-version-sort]"));
+  const privatePluginKey = container.querySelector("[data-private-plugin-uuid]");
+  const coPluginsList = container.querySelector("#plugin-co-plugins-list");
+  const coPluginsToggle = container.querySelector('button[data-action="toggle-co-plugins"]');
+  const pluginLinksForm = container.querySelector("#plugin-links-form");
+  const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
+  const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
+  const pluginLinksSubmit = container.querySelector("#plugin-links-submit");
 
   const bindListener = (element, eventName, handler) => {
     if (!element) return;
@@ -518,6 +692,30 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
     });
   };
 
+  const renderCoPlugins = () => {
+    if (!coPluginsList) return;
+
+    if (coPlugins.length === 0) {
+      coPluginsList.innerHTML = `<span class="text-sm text-slate-600">No co-install data reported yet.</span>`;
+      if (coPluginsToggle) coPluginsToggle.classList.add("hidden");
+      return;
+    }
+
+    const visibleItems = coPluginsExpanded ? coPlugins : coPlugins.slice(0, 10);
+    coPluginsList.innerHTML = visibleItems.map((item) => renderCoPluginItem(item)).join("");
+
+    if (!coPluginsToggle) return;
+    const remainingCount = Math.max(0, coPlugins.length - 10);
+    if (remainingCount === 0) {
+      coPluginsToggle.classList.add("hidden");
+      return;
+    }
+
+    coPluginsToggle.classList.remove("hidden");
+    coPluginsToggle.textContent = coPluginsExpanded ? "Show Less" : `Show ${remainingCount} More`;
+    coPluginsToggle.setAttribute("aria-expanded", coPluginsExpanded ? "true" : "false");
+  };
+
   versionSortButtons.forEach((button) => {
     bindListener(button, "click", () => {
       const mode = button.getAttribute("data-version-sort");
@@ -527,6 +725,64 @@ export function renderPluginAnalytics(container, { pluginUuid, pluginInfo, devel
     });
   });
   renderVersions();
+  renderCoPlugins();
+
+  if (privatePluginKey) {
+    const togglePrivatePluginKey = () => {
+      const isRevealed = privatePluginKey.getAttribute("aria-expanded") === "true";
+      privatePluginKey.setAttribute("aria-expanded", isRevealed ? "false" : "true");
+      privatePluginKey.classList.toggle("blur-[4px]", isRevealed);
+      privatePluginKey.classList.toggle("select-none", isRevealed);
+    };
+
+    bindListener(privatePluginKey, "click", togglePrivatePluginKey);
+    bindListener(privatePluginKey, "keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      togglePrivatePluginKey();
+    });
+  }
+
+  if (coPluginsToggle) {
+    bindListener(coPluginsToggle, "click", () => {
+      coPluginsExpanded = !coPluginsExpanded;
+      renderCoPlugins();
+    });
+  }
+
+  if (
+    pluginLinksForm &&
+    pluginGithubLinkInput &&
+    pluginCurseforgeLinkInput &&
+    pluginLinksSubmit &&
+    editablePluginLinks
+  ) {
+    bindListener(pluginLinksForm, "submit", async (event) => {
+      event.preventDefault();
+      const githubLink = pluginGithubLinkInput.value.trim();
+      const curseforgeLink = pluginCurseforgeLinkInput.value.trim();
+
+      pluginLinksSubmit.disabled = true;
+      pluginLinksSubmit.textContent = "Saving...";
+
+      try {
+        await applyPluginLinks(pluginUuid, githubLink, curseforgeLink);
+        if (typeof onNotify === "function") {
+          onNotify("Mod links saved.", "success", pluginLinksForm);
+        }
+        if (typeof onPluginLinksSaved === "function") {
+          await onPluginLinksSaved();
+        }
+      } catch (error) {
+        if (typeof onNotify === "function") {
+          onNotify(error.message || "Failed to save mod links.", "error", pluginLinksForm);
+        }
+      } finally {
+        pluginLinksSubmit.disabled = false;
+        pluginLinksSubmit.textContent = "Save";
+      }
+    });
+  }
 
   if (
     themeSelect &&

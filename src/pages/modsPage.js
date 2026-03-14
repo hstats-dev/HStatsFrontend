@@ -59,6 +59,10 @@ export async function mountModsPage({ container }) {
           uuid: plugin.uuid || uuid,
           name: plugin.name || "Unknown",
           developerInfo: value?.developer_info || null,
+          links: {
+            github_link: plugin.github_link || "",
+            curseforge_link: plugin.curseforge_link || "",
+          },
           totalServers: value?.servers_using || 0,
           totalPlayers: value?.total_players || 0,
         };
@@ -228,6 +232,10 @@ export async function mountModsPage({ container }) {
           uuid: pluginUuid,
           name: pluginInfo.name || "Unknown",
           developerInfo: ownershipInfo,
+          links: pluginInfo.links || {
+            github_link: pluginInfo.github_link || "",
+            curseforge_link: pluginInfo.curseforge_link || "",
+          },
           totalServers: pluginInfo.total_servers || 0,
           totalPlayers: pluginInfo.total_players || 0,
         },

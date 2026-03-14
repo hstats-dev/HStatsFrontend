@@ -53,7 +53,7 @@ export async function mountBstatsForHytalePage({ container }) {
           <h2 class="text-xl font-extrabold tracking-tight text-slate-900">What is bStats for Hytale?</h2>
           <p class="text-sm text-slate-700 sm:text-base">
             bStats is widely known in Minecraft plugin development. Hytale needed the same style of
-            analytics platform, built for Hytale plugins and Hytale server environments. HStats is that platform.
+            analytics platform, built for Hytale mods and Hytale server environments. HStats is that platform.
           </p>
           <p class="text-sm text-slate-700 sm:text-base">
             In practical terms, HStats is <strong>bStats but for Hytale</strong>: it gives developers a clean way
@@ -68,7 +68,7 @@ export async function mountBstatsForHytalePage({ container }) {
           <div class="grid gap-3 sm:grid-cols-2">
             <div class="rounded-lg border border-sky-100 bg-white p-4">
               <h3 class="text-base font-bold text-slate-900">Simple SDK Drop-in</h3>
-              <p class="mt-1 text-sm text-slate-600">Add one class and initialize with your mod UUID and version.</p>
+              <p class="mt-1 text-sm text-slate-600">Add one class and initialize with your private server reporting key and version.</p>
             </div>
             <div class="rounded-lg border border-sky-100 bg-white p-4">
               <h3 class="text-base font-bold text-slate-900">Anonymous Metrics</h3>
@@ -91,9 +91,9 @@ export async function mountBstatsForHytalePage({ container }) {
           <h2 class="text-xl font-extrabold tracking-tight text-slate-900">Quick Setup (Same Spirit as bStats)</h2>
           <ol class="list-decimal space-y-2 pl-5 text-sm text-slate-700 sm:text-base">
             <li>Create your account and add your mod in the dashboard.</li>
-            <li>Copy your mod UUID.</li>
-            <li>Drop the HStats class file into your plugin source.</li>
-            <li>Initialize HStats in your plugin setup method.</li>
+            <li>Copy your private server reporting key from the dashboard.</li>
+            <li>Drop the HStats class file into your mod source.</li>
+            <li>Initialize HStats in your mod setup method.</li>
           </ol>
           <div class="flex flex-wrap gap-3 pt-1">
             <a href="/docs" data-link class="btn-primary">Read Integration Docs</a>

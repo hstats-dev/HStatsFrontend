@@ -19,10 +19,13 @@ function resolveDeveloperLinks(developerInfo) {
   const nestedAccount = developerInfo?.account && typeof developerInfo.account === "object"
     ? developerInfo.account
     : {};
+  const nestedLinks = developerInfo?.links && typeof developerInfo.links === "object"
+    ? developerInfo.links
+    : {};
 
   return {
-    githubLink: sanitizeExternalUrl(nestedAccount.github_link || developerInfo?.github_link),
-    curseforgeLink: sanitizeExternalUrl(nestedAccount.curseforge_link || developerInfo?.curseforge_link),
+    githubLink: sanitizeExternalUrl(nestedLinks.github_link || nestedAccount.github_link || developerInfo?.github_link),
+    curseforgeLink: sanitizeExternalUrl(nestedLinks.curseforge_link || nestedAccount.curseforge_link || developerInfo?.curseforge_link),
   };
 }
 

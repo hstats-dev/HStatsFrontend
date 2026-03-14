@@ -2,7 +2,7 @@ import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
 import { renderDeveloperIconLinks } from "./developerLinks";
 
-export function modCard({ uuid, name, developerInfo, totalServers, totalPlayers }) {
+export function modCard({ uuid, name, developerInfo, links, totalServers, totalPlayers }) {
   return `
     <article class="surface transition hover:-translate-y-0.5 hover:border-sky-200">
       <div class="p-4 space-y-3">
@@ -10,7 +10,7 @@ export function modCard({ uuid, name, developerInfo, totalServers, totalPlayers 
         <div class="flex items-end justify-between gap-3">
           <div>
             <p class="text-[11px] uppercase tracking-wide text-slate-500">Developer</p>
-            ${renderDeveloperIconLinks(developerInfo)}
+            ${renderDeveloperIconLinks({ ...developerInfo, links })}
           </div>
           <div class="grid grid-cols-2 gap-3 text-right">
             <div>

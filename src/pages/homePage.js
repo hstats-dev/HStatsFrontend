@@ -70,7 +70,7 @@ export async function mountHomePage({ container }) {
                 <article class="relative rounded-xl border border-sky-100 bg-white p-4 pl-12 shadow-sm">
                   <span class="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">1</span>
                   <p class="text-sm font-semibold text-slate-900">Add the HStats API to your mod</p>
-                  <p class="mt-1 text-sm text-slate-600">Drop in the integration and initialize tracking in your plugin startup.</p>
+                  <p class="mt-1 text-sm text-slate-600">Drop in the integration and initialize tracking in your mod startup.</p>
                 </article>
                 <article class="relative rounded-xl border border-sky-100 bg-white p-4 pl-12 shadow-sm">
                   <span class="absolute left-3 top-3 inline-flex h-6 w-6 items-center justify-center rounded-full bg-brand-600 text-xs font-bold text-white">2</span>

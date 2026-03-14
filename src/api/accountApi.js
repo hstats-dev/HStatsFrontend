@@ -48,6 +48,15 @@ export function applyCurseforgeLink(curseforgeLink) {
   });
 }
 
+export function applyUsername(username) {
+  return apiRequest("/account/apply-username", {
+    method: "POST",
+    body: {
+      username,
+    },
+  });
+}
+
 export function changePassword(currentPassword, newPassword) {
   return apiRequest("/account/change-password", {
     method: "POST",
@@ -60,6 +69,12 @@ export function changePassword(currentPassword, newPassword) {
 
 export function getPluginOwnership(pluginUuid, signal) {
   return apiRequest(`/account/get-plugin-ownership/${encodeURIComponent(pluginUuid)}`, {
+    signal,
+  });
+}
+
+export function getDeveloperProfile(developerUuid, signal) {
+  return apiRequest(`/account/developer/${encodeURIComponent(developerUuid)}`, {
     signal,
   });
 }

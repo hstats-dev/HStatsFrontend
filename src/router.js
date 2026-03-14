@@ -4,6 +4,7 @@ import { mountHomePage } from "./pages/homePage";
 import { mountOverallStatsPage } from "./pages/overallStatsPage";
 import { mountModsPage } from "./pages/modsPage";
 import { mountModDetailsPage } from "./pages/modDetailsPage";
+import { mountDeveloperProfilePage } from "./pages/developerProfilePage";
 import { mountDocumentationPage } from "./pages/documentationPage";
 import { mountBstatsForHytalePage } from "./pages/bstatsForHytalePage";
 import { mountDashboardPage } from "./pages/dashboardPage";
@@ -31,6 +32,11 @@ const SEO_MODS = {
 const SEO_MOD_DETAILS = {
   title: "Mod Analytics",
   description: "Detailed HStats analytics for a specific Hytale mod, including usage trends and live server activity.",
+};
+
+const SEO_DEVELOPER_PROFILE = {
+  title: "Developer Profile",
+  description: "View a developer's public profile, links, and managed mods on HStats.",
 };
 
 const SEO_DOCS = {
@@ -97,6 +103,21 @@ function resolveRoute(pathname) {
         params: { pluginUuid },
         requiresAuth: false,
         seo: SEO_MOD_DETAILS,
+      };
+    } catch {
+      return { mount: mountNotFoundPage, params: {}, requiresAuth: false, seo: SEO_NOT_FOUND };
+    }
+  }
+
+  const developerProfileMatch = pathname.match(/^\/developers\/([^/]+)$/);
+  if (developerProfileMatch) {
+    try {
+      const developerUuid = decodeURIComponent(developerProfileMatch[1]);
+      return {
+        mount: mountDeveloperProfilePage,
+        params: { developerUuid },
+        requiresAuth: false,
+        seo: SEO_DEVELOPER_PROFILE,
       };
     } catch {
       return { mount: mountNotFoundPage, params: {}, requiresAuth: false, seo: SEO_NOT_FOUND };

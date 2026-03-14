@@ -8,7 +8,7 @@ import { setPageSeo } from "../utils/seo";
 export async function mountModDetailsPage({ container, params }) {
   const pluginUuid = params.pluginUuid;
   if (!pluginUuid) {
-    container.innerHTML = errorState("Missing mod UUID.");
+    container.innerHTML = errorState("Missing Mod ID.");
     return { cleanup: () => {} };
   }
 
@@ -43,7 +43,13 @@ export async function mountModDetailsPage({ container, params }) {
     const destroyCharts = renderPluginAnalytics(body, {
       pluginUuid,
       pluginInfo,
-      developerInfo: ownershipInfo,
+      developerInfo: {
+        ...(ownershipInfo || {}),
+        links: pluginInfo.links || {
+          github_link: pluginInfo.github_link || "",
+          curseforge_link: pluginInfo.curseforge_link || "",
+        },
+      },
       showUuid: false,
     });
     return { cleanup: destroyCharts };

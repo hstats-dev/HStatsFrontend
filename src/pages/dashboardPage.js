@@ -1,8 +1,8 @@
 import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
-import { applyCurseforgeLink, applyGithubLink, logoutAccount } from "../api/accountApi";
-import { DASHBOARD_REFRESH_MS, FOOTER_DISCORD_URL } from "../config";
-import { parsePluginAccess } from "../utils/pluginAccess";
-import { formatTimestamp } from "../utils/format";
+import { applyCurseforgeLink, applyGithubLink, applyUsername, logoutAccount } from "../api/accountApi";
+import { DASHBOARD_REFRESH_MS } from "../config";
+import { pairPluginAccess } from "../utils/pluginAccess";
+import { formatNumber, formatTimestamp } from "../utils/format";
 import { loadingState } from "../components/loadingState";
 import { emptyState } from "../components/emptyState";
 import { errorState } from "../components/errorState";
@@ -51,45 +51,70 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   container.innerHTML = `
     <section class="space-y-6">
-      <header class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 class="section-title">Dashboard</h1>
-          <p class="muted mt-1">Manage your mods and monitor live stats every 15 seconds.</p>
-        </div>
-        <a href="/docs" data-link class="btn-secondary">View Documentation</a>
-      </header>
-
-      <section class="rounded-xl border border-indigo-200 bg-indigo-50/80 px-4 py-3">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p class="text-sm font-semibold text-indigo-900">HStats is Very New!</p>
-            <p class="mt-1 text-sm text-indigo-800">There has been a lot more traffic the past few days. You may see bugs or rough edges while things are stabilizing. Please be patient and report issues or feedback in the Discord so we can improve quickly.</p>
+      <header class="surface overflow-hidden">
+        <div class="surface-body bg-gradient-to-br from-sky-50 via-white to-slate-50 space-y-5">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-[0.18em] text-brand-700">Dashboard</p>
+              <h1 class="section-title mt-2">Account and Mod Workspace</h1>
+              <p class="muted mt-2 max-w-3xl">Register your mods, manage settings, and view live analytics organized in separate spaces.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <a href="/docs" data-link class="btn-secondary">Documentation</a>
+              <a
+                id="dashboard-top-profile-link"
+                href="${currentAccount?.id ? `/developers/${encodeURIComponent(currentAccount.id)}` : "#"}"
+                data-link
+                class="${currentAccount?.id ? "inline-flex" : "hidden"} items-center rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-brand-700 transition hover:bg-sky-50"
+              >
+                View Public Profile
+              </a>
+            </div>
           </div>
-          <a
-            href="${FOOTER_DISCORD_URL}"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]"
-          >
-            Join Discord
-          </a>
+          <div class="grid gap-3 md:grid-cols-3">
+            <div class="rounded-xl border border-sky-100 bg-white/85 px-4 py-3 shadow-soft">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Signed In As</p>
+                <button
+                  id="dashboard-summary-edit-name"
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-200 bg-white text-slate-600 transition hover:border-sky-300 hover:bg-sky-50 hover:text-brand-700"
+                  title="Edit name"
+                  aria-label="Edit name"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
+                    <path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                    <path d="m13 7 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  </svg>
+                </button>
+              </div>
+              <p id="dashboard-summary-identity" class="mt-2 truncate text-lg font-extrabold text-slate-900"></p>
+            </div>
+            <div class="rounded-xl border border-sky-100 bg-white/85 px-4 py-3 shadow-soft">
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Registered Mods</p>
+              <p id="dashboard-summary-mod-count" class="mt-2 text-2xl font-extrabold leading-none text-slate-900">0</p>
+            </div>
+            <div class="rounded-xl border border-sky-100 bg-white/85 px-4 py-3 shadow-soft">
+              <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Servers</p>
+              <p id="dashboard-summary-server-count" class="mt-2 text-2xl font-extrabold leading-none text-slate-900">0</p>
+            </div>
+          </div>
         </div>
-      </section>
-      <div class="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
+      </header>
+      <div class="grid gap-6 xl:grid-cols-[340px_minmax(0,1fr)]">
         <div class="space-y-6">
-          <section class="surface">
+          <section id="dashboard-account-settings" class="surface">
             <div class="surface-body space-y-4">
               <div>
-                <h2 class="text-lg font-bold text-slate-900">Mod Management</h2>
-                <p class="muted mt-1">Add, select, and manage your mods.</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Library</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">Your Mods</h2>
               </div>
-
-            <form id="dashboard-add-plugin-form" class="space-y-3">
-              <input id="dashboard-plugin-name" class="input-base" type="text" placeholder="Mod name" required />
-              <button type="submit" class="btn-primary w-full">Add Mod</button>
-              <p id="dashboard-add-plugin-status" class="hidden text-xs font-semibold"></p>
-            </form>
-
+              <form id="dashboard-add-plugin-form" class="rounded-xl border border-sky-100 bg-slate-50 p-3 space-y-3">
+                <label for="dashboard-plugin-name" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Create Mod</label>
+                <input id="dashboard-plugin-name" class="input-base" type="text" placeholder="Mod name" required />
+                <button type="submit" class="btn-primary w-full">Add Mod</button>
+                <p id="dashboard-add-plugin-status" class="hidden text-xs font-semibold"></p>
+              </form>
               <div id="dashboard-plugin-list"></div>
             </div>
           </section>
@@ -97,8 +122,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           <section class="surface">
             <div class="surface-body space-y-4">
               <div>
-                <h2 class="text-lg font-bold text-slate-900">Account</h2>
-                <p class="muted mt-1">Manage profile links and session.</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Account Center</p>
+                <h2 class="mt-1 text-lg font-bold text-slate-900">Profile and Session</h2>
+                <p class="muted mt-1">Update your public identity, developer links, and session settings.</p>
               </div>
 
               <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-2">
@@ -112,6 +138,20 @@ export async function mountDashboardPage({ container, account, refreshSession, s
               </section>
 
               <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-3">
+                <form id="dashboard-username-form" class="grid gap-2">
+                  <label for="dashboard-username" class="text-xs font-semibold text-slate-600">Username</label>
+                  <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      id="dashboard-username"
+                      type="text"
+                      class="input-base"
+                      placeholder="Example Dev"
+                      value="${escapeHtml(currentAccount.username || "")}"
+                    />
+                    <button id="dashboard-username-submit" type="submit" class="btn-secondary">Save</button>
+                  </div>
+                  <p class="text-[11px] text-slate-500">Shown on your public developer profile. Leave blank to clear it.</p>
+                </form>
                 <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700">Profile Links</h3>
                 <form id="dashboard-github-link-form" class="grid gap-2">
                   <label for="dashboard-github-link" class="text-xs font-semibold text-slate-600">GitHub Link</label>
@@ -133,7 +173,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
                       id="dashboard-curseforge-link"
                       type="url"
                       class="input-base"
-                      placeholder="https://www.curseforge.com/minecraft/mc-mods/your-mod"
+                      placeholder="https://www.curseforge.com/hytale/mods/your-mod"
                       value="${escapeHtml(currentAccount.curseforge_link || "")}"
                     />
                     <button id="dashboard-curseforge-link-submit" type="submit" class="btn-secondary">Save</button>
@@ -150,12 +190,20 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           </section>
         </div>
 
-        <section class="space-y-4">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div id="dashboard-live-status" class="text-sm text-slate-600"></div>
-            <button id="dashboard-manual-refresh" class="btn-secondary">Refresh</button>
+        <section class="surface">
+          <div class="surface-body space-y-5">
+            <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Workspace</p>
+                <h2 id="dashboard-workspace-title" class="mt-1 text-xl font-extrabold text-slate-900">Select a mod</h2>
+              </div>
+              <div class="flex items-center gap-2 md:justify-self-end">
+                <div id="dashboard-live-status" class="text-sm text-slate-600"></div>
+                <button id="dashboard-manual-refresh" class="btn-secondary">Refresh</button>
+              </div>
+            </div>
+            <div id="dashboard-live-content"></div>
           </div>
-          <div id="dashboard-live-content"></div>
         </section>
       </div>
       <div id="dashboard-toast-stack" class="toast-stack"></div>
@@ -166,12 +214,22 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   const nameInput = container.querySelector("#dashboard-plugin-name");
   const addStatus = container.querySelector("#dashboard-add-plugin-status");
   const addSubmitButton = addForm.querySelector('button[type="submit"]');
+  const usernameForm = container.querySelector("#dashboard-username-form");
+  const usernameInput = container.querySelector("#dashboard-username");
+  const usernameSubmit = container.querySelector("#dashboard-username-submit");
   const githubLinkForm = container.querySelector("#dashboard-github-link-form");
   const githubLinkInput = container.querySelector("#dashboard-github-link");
   const githubLinkSubmit = container.querySelector("#dashboard-github-link-submit");
   const curseforgeLinkForm = container.querySelector("#dashboard-curseforge-link-form");
   const curseforgeLinkInput = container.querySelector("#dashboard-curseforge-link");
   const curseforgeLinkSubmit = container.querySelector("#dashboard-curseforge-link-submit");
+  const topProfileLink = container.querySelector("#dashboard-top-profile-link");
+  const summaryEditNameButton = container.querySelector("#dashboard-summary-edit-name");
+  const summaryIdentity = container.querySelector("#dashboard-summary-identity");
+  const summaryModCount = container.querySelector("#dashboard-summary-mod-count");
+  const summaryServerCount = container.querySelector("#dashboard-summary-server-count");
+  const workspaceTitle = container.querySelector("#dashboard-workspace-title");
+  const accountSettingsSection = container.querySelector("#dashboard-account-settings");
   const accountEmailValue = container.querySelector("#dashboard-account-email-value");
   const accountEmailToggle = container.querySelector("#dashboard-account-email-toggle");
   const pluginList = container.querySelector("#dashboard-plugin-list");
@@ -268,41 +326,82 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   function applyAccountDetails(nextAccount) {
     if (!nextAccount) return;
     currentAccount = nextAccount;
+    usernameInput.value = currentAccount.username || "";
     githubLinkInput.value = currentAccount.github_link || "";
     curseforgeLinkInput.value = currentAccount.curseforge_link || "";
+    if (topProfileLink) {
+      if (currentAccount.id) {
+        topProfileLink.href = `/developers/${encodeURIComponent(currentAccount.id)}`;
+        topProfileLink.classList.remove("hidden");
+        topProfileLink.classList.add("inline-flex");
+      } else {
+        topProfileLink.href = "#";
+        topProfileLink.classList.add("hidden");
+        topProfileLink.classList.remove("inline-flex");
+      }
+    }
     renderAccountEmail();
+    updateDashboardSummary();
+  }
+
+  function updateDashboardSummary() {
+    const identity = String(currentAccount?.username || "").trim() || "No Name";
+    const activePlugin = pluginItems.find((item) => item.publicUuid === activePluginUuid);
+    const activeModName = String(activePlugin?.info?.name || "").trim() || "No mod selected";
+    const totalServers = pluginItems.reduce((sum, item) => sum + (Number(item?.info?.total_servers) || 0), 0);
+
+    if (summaryIdentity) {
+      summaryIdentity.textContent = identity;
+    }
+    if (summaryModCount) {
+      summaryModCount.textContent = formatNumber(pluginItems.length);
+    }
+    if (summaryServerCount) {
+      summaryServerCount.textContent = formatNumber(totalServers);
+    }
+    if (workspaceTitle) {
+      workspaceTitle.textContent = activeModName;
+    }
   }
 
   function renderPluginList() {
     if (pluginItems.length === 0) {
       pluginList.innerHTML = emptyState(
         "No mods yet",
-        "Add your first mod using the form above to receive a mod UUID.",
+        "Add your first mod using the form above to receive a public Mod ID and private server reporting key.",
       );
+      updateDashboardSummary();
       return;
     }
 
     pluginList.innerHTML = `
+      <div class="flex items-center justify-between gap-3 pb-1">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Registered Mods</p>
+        <span class="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-brand-700">${escapeHtml(formatNumber(pluginItems.length))}</span>
+      </div>
       <div class="space-y-2">
         ${pluginItems
           .map(
             (plugin) => `
-              <article class="rounded-lg border ${plugin.uuid === activePluginUuid ? "border-sky-300 bg-sky-50" : "border-sky-100 bg-white"} p-2">
-                <div class="flex items-center gap-1.5">
+              <article class="rounded-xl border ${plugin.publicUuid === activePluginUuid ? "border-sky-300 bg-sky-50/80 shadow-soft" : "border-sky-100 bg-white"} p-3 transition">
+                <div class="flex items-start gap-2">
                   <button
-                    class="min-w-0 flex-1 rounded-md px-2 py-2 text-left transition hover:bg-sky-50"
+                    class="min-w-0 flex-1 rounded-lg px-2 py-2 text-left transition hover:bg-sky-50"
                     data-action="select"
-                    data-uuid="${escapeHtml(plugin.uuid)}"
+                    data-uuid="${escapeHtml(plugin.publicUuid)}"
                   >
-                    <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(plugin.info.name || "Unknown mod")}</p>
-                    <p class="truncate font-mono text-[11px] text-slate-600">${escapeHtml(plugin.uuid)}</p>
+                    <div class="flex items-center justify-between gap-2">
+                      <p class="truncate text-sm font-semibold text-slate-900">${escapeHtml(plugin.info.name || "Unknown mod")}</p>
+                      ${plugin.publicUuid === activePluginUuid ? `<span class="rounded-full bg-brand-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">Selected</span>` : ""}
+                    </div>
+                    <p class="mt-1 truncate font-mono text-[11px] text-slate-600">${escapeHtml(plugin.publicUuid)}</p>
                   </button>
                   <button
                     class="inline-flex h-8 w-8 items-center justify-center rounded-md text-slate-600 transition hover:bg-slate-100"
                     data-action="copy"
-                    data-uuid="${escapeHtml(plugin.uuid)}"
-                    title="Copy UUID"
-                    aria-label="Copy UUID"
+                    data-uuid="${escapeHtml(plugin.publicUuid)}"
+                    title="Copy Mod ID"
+                    aria-label="Copy Mod ID"
                   >
                     <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
                       <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor" stroke-width="2" />
@@ -312,7 +411,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
                   <button
                     class="inline-flex h-8 w-8 items-center justify-center rounded-md text-red-700 transition hover:bg-red-100"
                     data-action="delete"
-                    data-uuid="${escapeHtml(plugin.uuid)}"
+                    data-uuid="${escapeHtml(plugin.publicUuid)}"
                     title="Delete mod"
                     aria-label="Delete mod"
                   >
@@ -330,6 +429,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           .join("")}
       </div>
     `;
+    updateDashboardSummary();
   }
 
   async function refreshLiveStats(showLoader = false, { notifyOnSuccess = false } = {}) {
@@ -350,13 +450,32 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     try {
       const pluginInfo = await getPluginInfo(activePluginUuid);
       if (disposed) return;
-      const index = pluginItems.findIndex((item) => item.uuid === activePluginUuid);
-      if (index >= 0) pluginItems[index] = { uuid: activePluginUuid, info: pluginInfo };
+      const index = pluginItems.findIndex((item) => item.publicUuid === activePluginUuid);
+      if (index >= 0) pluginItems[index] = { ...pluginItems[index], info: pluginInfo };
+      const activePlugin = index >= 0 ? pluginItems[index] : null;
 
       destroyAnalytics();
-      analyticsCleanup = renderPluginAnalytics(liveContent, { pluginUuid: activePluginUuid, pluginInfo });
+      analyticsCleanup = renderPluginAnalytics(liveContent, {
+        pluginUuid: activePluginUuid,
+        privatePluginUuid: activePlugin?.privateUuid || "",
+        pluginInfo,
+        developerInfo: {
+          links: pluginInfo.links || {
+            github_link: pluginInfo.github_link || "",
+            curseforge_link: pluginInfo.curseforge_link || "",
+          },
+        },
+        editablePluginLinks: true,
+        onPluginLinksSaved: async () => {
+          await refreshLiveStats(false);
+        },
+        onNotify: (message, type, target) => {
+          showFeedback(message, type, target || liveContent);
+        },
+      });
       liveStatus.textContent = `Last updated at ${formatTimestamp(new Date())}`;
       renderPluginList();
+      updateDashboardSummary();
       if (notifyOnSuccess) {
         showFeedback("Stats refreshed", "success", liveContent);
       }
@@ -365,6 +484,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       destroyAnalytics();
       liveContent.innerHTML = errorState(error.message || "Failed to refresh mod stats.");
       liveStatus.textContent = "";
+      updateDashboardSummary();
       if (notifyOnSuccess) {
         showFeedback("Refresh failed", "error", liveContent);
       }
@@ -378,14 +498,14 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     }, DASHBOARD_REFRESH_MS);
   }
 
-  async function loadPlugins() {
+  async function loadPlugins(preferredActivePluginUuid = "") {
     pluginList.innerHTML = loadingState("Loading your mods...");
     liveContent.innerHTML = loadingState("Preparing live analytics...");
 
     const latestAccount = (await refreshSession()) || currentAccount;
     applyAccountDetails(latestAccount);
-    const pluginUuids = parsePluginAccess(latestAccount?.plugin_access);
-    if (pluginUuids.length === 0) {
+    const pluginAccessEntries = pairPluginAccess(latestAccount?.plugin_access, latestAccount?.private_plugin_access);
+    if (pluginAccessEntries.length === 0) {
       pluginItems = [];
       activePluginUuid = null;
       renderPluginList();
@@ -394,19 +514,23 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       return;
     }
 
-    const pluginResults = await Promise.allSettled(pluginUuids.map((uuid) => getPluginInfo(uuid)));
+    const pluginResults = await Promise.allSettled(pluginAccessEntries.map((entry) => getPluginInfo(entry.publicUuid)));
     if (disposed) return;
 
     pluginItems = pluginResults
       .map((result, index) => {
         if (result.status !== "fulfilled") return null;
-        return { uuid: pluginUuids[index], info: result.value };
+        return {
+          publicUuid: pluginAccessEntries[index].publicUuid,
+          privateUuid: pluginAccessEntries[index].privateUuid,
+          info: result.value,
+        };
       })
       .filter(Boolean);
 
     if (pluginItems.length === 0) {
       pluginList.innerHTML = errorState(
-        "Your account has mod UUIDs, but none could be loaded. This may happen if deleted mods remain in your account access list.",
+        "Your account has mod access entries, but none could be loaded. This may happen if deleted mods remain in your account access list.",
       );
       activePluginUuid = null;
       await refreshLiveStats(false);
@@ -414,8 +538,10 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       return;
     }
 
-    if (!activePluginUuid || !pluginItems.some((item) => item.uuid === activePluginUuid)) {
-      activePluginUuid = pluginItems[0].uuid;
+    if (preferredActivePluginUuid && pluginItems.some((item) => item.publicUuid === preferredActivePluginUuid)) {
+      activePluginUuid = preferredActivePluginUuid;
+    } else if (!activePluginUuid || !pluginItems.some((item) => item.publicUuid === activePluginUuid)) {
+      activePluginUuid = pluginItems[0].publicUuid;
     }
 
     renderPluginList();
@@ -434,9 +560,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     try {
       const result = await addPlugin(name);
       showFeedback(`Mod created: ${result.plugin_uuid}`, "success", addForm);
-      showAddStatus("Mod created successfully.", "success");
+      showAddStatus("Mod created. Open its panel to copy the private server reporting key.", "success");
       addForm.reset();
-      await loadPlugins();
+      await loadPlugins(result.plugin_uuid);
     } catch (error) {
       const message = resolveAddPluginError(error);
       showAddStatus(message, "error");
@@ -449,6 +575,26 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   nameInput.addEventListener("input", () => {
     clearAddStatus();
+  });
+
+  usernameForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const username = usernameInput.value.trim();
+
+    usernameSubmit.disabled = true;
+    usernameSubmit.textContent = "Saving...";
+    try {
+      await applyUsername(username);
+      const latestAccount = await refreshSession();
+      setAccount(latestAccount || null);
+      applyAccountDetails(latestAccount);
+      showFeedback(username ? "Username saved" : "Username cleared", "success", usernameForm);
+    } catch (error) {
+      showFeedback(`Failed to save username: ${error.message || "Unknown error"}`, "error", usernameForm);
+    } finally {
+      usernameSubmit.disabled = false;
+      usernameSubmit.textContent = "Save";
+    }
   });
 
   githubLinkForm.addEventListener("submit", async (event) => {
@@ -510,9 +656,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     if (action === "copy") {
       try {
         await navigator.clipboard.writeText(uuid);
-        showFeedback("UUID copied", "success", button);
+        showFeedback("Mod ID copied", "success", button);
       } catch {
-        showFeedback(`Could not copy UUID automatically. UUID: ${uuid}`, "error", button);
+        showFeedback(`Could not copy Mod ID automatically. Mod ID: ${uuid}`, "error", button);
       }
       return;
     }
@@ -526,7 +672,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     }
 
     if (action === "delete") {
-      const modEntry = pluginItems.find((item) => item.uuid === uuid);
+      const modEntry = pluginItems.find((item) => item.publicUuid === uuid);
       const modName = (modEntry?.info?.name || "").trim() || "Unknown mod";
       const confirmed = window.confirm(`Delete mod "${modName}"?`);
       if (!confirmed) return;
@@ -541,17 +687,18 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   });
 
   liveContent.addEventListener("click", async (event) => {
-    const button = event.target.closest('button[data-action="copy-plugin-uuid"]');
+    const button = event.target.closest("button[data-copy-value]");
     if (!button) return;
 
-    const uuid = button.getAttribute("data-uuid");
-    if (!uuid) return;
+    const value = button.getAttribute("data-copy-value");
+    const label = button.getAttribute("data-copy-label") || "Value";
+    if (!value) return;
 
     try {
-      await navigator.clipboard.writeText(uuid);
-      showFeedback("UUID copied", "success", button);
+      await navigator.clipboard.writeText(value);
+      showFeedback(`${label} copied`, "success", button);
     } catch {
-      showFeedback(`Could not copy UUID automatically. UUID: ${uuid}`, "error", button);
+      showFeedback(`Could not copy ${label} automatically. ${label}: ${value}`, "error", button);
     }
   });
 
@@ -559,11 +706,20 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     refreshLiveStats(true, { notifyOnSuccess: true });
   });
 
+  const onEditNameClick = () => {
+    accountSettingsSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => {
+      usernameInput?.focus();
+      usernameInput?.select();
+    }, 250);
+  };
+
   const onToggleEmail = () => {
     isEmailRevealed = !isEmailRevealed;
     renderAccountEmail();
   };
 
+  summaryEditNameButton?.addEventListener("click", onEditNameClick);
   accountEmailToggle.addEventListener("click", onToggleEmail);
 
   logoutButton.addEventListener("click", async () => {
@@ -579,12 +735,14 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   await loadPlugins();
   renderAccountEmail();
+  updateDashboardSummary();
 
   return {
     cleanup: () => {
       disposed = true;
       stopPolling();
       destroyAnalytics();
+      summaryEditNameButton?.removeEventListener("click", onEditNameClick);
       accountEmailToggle.removeEventListener("click", onToggleEmail);
     },
   };
