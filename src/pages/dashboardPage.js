@@ -1,6 +1,6 @@
 import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
 import { applyCurseforgeLink, applyGithubLink, applyUsername, logoutAccount } from "../api/accountApi";
-import { DASHBOARD_REFRESH_MS } from "../config";
+import { API_ROOT, DASHBOARD_REFRESH_MS } from "../config";
 import { pairPluginAccess } from "../utils/pluginAccess";
 import { formatNumber, formatTimestamp } from "../utils/format";
 import { loadingState } from "../components/loadingState";
@@ -8,6 +8,111 @@ import { emptyState } from "../components/emptyState";
 import { errorState } from "../components/errorState";
 import { renderPluginAnalytics } from "../components/pluginAnalytics";
 import { escapeHtml } from "../utils/escapeHtml";
+
+const DEFAULT_PROFILE_EMBED_OPTIONS = {
+  theme: "light",
+  layout: "compact",
+  size: "md",
+  dark: false,
+};
+
+function buildDeveloperEmbedUrl(developerUuid, options, { cacheBust = false } = {}) {
+  const safeUuid = encodeURIComponent(developerUuid || "");
+  const params = new URLSearchParams();
+
+  params.set("theme", options.theme);
+  params.set("layout", options.layout);
+  params.set("size", options.size);
+  params.set("dark", String(options.dark));
+
+  if (cacheBust) {
+    params.set("t", String(Date.now()));
+  }
+
+  return `${API_ROOT}/embed/developer/${safeUuid}/card.svg?${params.toString()}`;
+}
+
+function renderDeveloperEmbedControls(account) {
+  const developerUuid = String(account?.id || "").trim();
+  if (!developerUuid) return "";
+
+  const displayName = String(account?.username || "").trim() || "No Name";
+  const initialUrl = buildDeveloperEmbedUrl(developerUuid, DEFAULT_PROFILE_EMBED_OPTIONS);
+  const initialPreviewUrl = buildDeveloperEmbedUrl(developerUuid, DEFAULT_PROFILE_EMBED_OPTIONS, { cacheBust: true });
+
+  return `
+    <section class="surface overflow-hidden">
+      <div class="surface-body space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Profile Embed</p>
+            <h2 class="mt-1 text-lg font-bold text-slate-900">Developer Profile Card</h2>
+            <p class="muted mt-1 max-w-2xl">Configure and preview a shareable SVG card for your public developer profile. Use the generated URL anywhere an image embed is supported.</p>
+          </div>
+        </div>
+
+        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_360px]">
+          <div class="rounded-xl border border-sky-100 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
+              <p class="text-[11px] text-slate-500">Preview is scaled to fit this panel. The final URL preserves the selected size.</p>
+            </div>
+            <div class="mt-3 overflow-hidden rounded-xl border border-sky-100 bg-white p-4">
+              <img
+                id="dashboard-developer-embed-preview"
+                src="${escapeHtml(initialPreviewUrl)}"
+                alt="Embed preview for ${escapeHtml(displayName)}"
+                loading="lazy"
+                class="mx-auto h-auto w-full max-w-[920px] rounded"
+              />
+            </div>
+          </div>
+
+          <div class="space-y-4 rounded-xl border border-sky-100 bg-slate-50 p-4">
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <label class="grid gap-1 text-xs font-semibold text-slate-600">
+                Theme
+                <select id="dashboard-developer-embed-theme" class="input-base py-2">
+                  <option value="light" selected>Light</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              <label class="grid gap-1 text-xs font-semibold text-slate-600">
+                Layout
+                <select id="dashboard-developer-embed-layout" class="input-base py-2">
+                  <option value="compact" selected>Compact</option>
+                  <option value="stacked">Stacked</option>
+                  <option value="history">History</option>
+                </select>
+              </label>
+              <label class="grid gap-1 text-xs font-semibold text-slate-600">
+                Size
+                <select id="dashboard-developer-embed-size" class="input-base py-2">
+                  <option value="sm">Small</option>
+                  <option value="md" selected>Medium</option>
+                  <option value="lg">Large</option>
+                </select>
+              </label>
+              <label class="inline-flex items-center gap-2 rounded-lg border border-sky-100 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+                <input id="dashboard-developer-embed-dark" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+                Force dark (alias)
+              </label>
+            </div>
+
+            <div class="space-y-2">
+              <label for="dashboard-developer-embed-url" class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Embed URL</label>
+              <input id="dashboard-developer-embed-url" type="text" readonly class="input-base w-full py-1.5 font-mono text-[10px]" value="${escapeHtml(initialUrl)}" />
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="dashboard-developer-embed-copy" type="button" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy URL</button>
+                <p id="dashboard-developer-embed-copy-status" class="text-[11px] text-slate-500"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  `;
+}
 
 export async function mountDashboardPage({ container, account, refreshSession, setAccount, navigate }) {
   if (!account) {
@@ -22,6 +127,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   let disposed = false;
   let currentAccount = account;
   let isEmailRevealed = false;
+  let developerEmbedCopyStatusTimeout = null;
 
   function normalizeEmailValue(email) {
     if (typeof email !== "string") return "";
@@ -72,23 +178,21 @@ export async function mountDashboardPage({ container, account, refreshSession, s
             </div>
           </div>
           <div class="grid gap-3 md:grid-cols-3">
-            <div class="dashboard-hero-stat">
-              <div class="flex items-center justify-between gap-2">
-                <p class="dashboard-hero-label">Signed In As</p>
-                <button
-                  id="dashboard-summary-edit-name"
-                  type="button"
-                  class="dashboard-hero-icon-button"
-                  title="Edit name"
-                  aria-label="Edit name"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
-                    <path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                    <path d="m13 7 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                  </svg>
-                </button>
-              </div>
-              <p id="dashboard-summary-identity" class="dashboard-hero-value mt-2 truncate text-lg font-extrabold"></p>
+            <div class="dashboard-hero-stat relative">
+              <p class="dashboard-hero-label pr-10">Signed In As</p>
+              <button
+                id="dashboard-summary-edit-name"
+                type="button"
+                class="dashboard-hero-icon-button absolute right-4 top-3"
+                title="Edit name"
+                aria-label="Edit name"
+              >
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" class="h-4 w-4">
+                  <path d="M4 20h4l10-10-4-4L4 16v4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                  <path d="m13 7 4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+              </button>
+              <p id="dashboard-summary-identity" class="dashboard-hero-value mt-2 truncate pr-10 text-lg font-extrabold"></p>
             </div>
             <div class="dashboard-hero-stat">
               <p class="dashboard-hero-label">Registered Mods</p>
@@ -180,7 +284,6 @@ export async function mountDashboardPage({ container, account, refreshSession, s
                   </div>
                 </form>
               </section>
-
               <div class="border-t border-sky-100 pt-2">
                 <button id="dashboard-logout-button" class="w-full rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50">
                   Logout
@@ -191,13 +294,13 @@ export async function mountDashboardPage({ container, account, refreshSession, s
         </div>
 
         <section class="surface">
-          <div class="surface-body space-y-5">
-            <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
-              <div>
-                <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Workspace</p>
-                <h2 id="dashboard-workspace-title" class="mt-1 text-xl font-extrabold text-slate-900">Select a mod</h2>
-              </div>
-              <div class="flex items-center gap-2 md:justify-self-end">
+            <div class="surface-body space-y-5">
+              <div class="grid gap-3 md:grid-cols-[1fr_auto] md:items-start">
+                <div>
+                  <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Settings</p>
+                  <h2 id="dashboard-workspace-title" class="mt-1 text-xl font-extrabold text-slate-900">Select a mod</h2>
+                </div>
+                <div class="flex items-center gap-2 md:justify-self-end">
                 <div id="dashboard-live-status" class="text-sm text-slate-600"></div>
                 <button id="dashboard-manual-refresh" class="btn-secondary">Refresh</button>
               </div>
@@ -206,6 +309,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           </div>
         </section>
       </div>
+      ${renderDeveloperEmbedControls(currentAccount)}
       <div id="dashboard-toast-stack" class="toast-stack"></div>
     </section>
   `;
@@ -238,6 +342,14 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   const liveContent = container.querySelector("#dashboard-live-content");
   const refreshButton = container.querySelector("#dashboard-manual-refresh");
   const toastStack = container.querySelector("#dashboard-toast-stack");
+  const developerEmbedTheme = container.querySelector("#dashboard-developer-embed-theme");
+  const developerEmbedLayout = container.querySelector("#dashboard-developer-embed-layout");
+  const developerEmbedSize = container.querySelector("#dashboard-developer-embed-size");
+  const developerEmbedDark = container.querySelector("#dashboard-developer-embed-dark");
+  const developerEmbedPreview = container.querySelector("#dashboard-developer-embed-preview");
+  const developerEmbedUrl = container.querySelector("#dashboard-developer-embed-url");
+  const developerEmbedCopy = container.querySelector("#dashboard-developer-embed-copy");
+  const developerEmbedCopyStatus = container.querySelector("#dashboard-developer-embed-copy-status");
 
   function stopPolling() {
     if (pollHandle) {
@@ -323,6 +435,33 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     accountEmailToggle.textContent = isEmailRevealed ? "Hide" : "Reveal";
   }
 
+  function refreshDeveloperEmbedPreview() {
+    const developerUuid = String(currentAccount?.id || "").trim();
+    if (
+      !developerUuid ||
+      !developerEmbedTheme ||
+      !developerEmbedLayout ||
+      !developerEmbedSize ||
+      !developerEmbedDark ||
+      !developerEmbedPreview ||
+      !developerEmbedUrl ||
+      !developerEmbedCopyStatus
+    ) {
+      return;
+    }
+
+    const options = {
+      theme: developerEmbedTheme.value,
+      layout: developerEmbedLayout.value,
+      size: developerEmbedSize.value,
+      dark: developerEmbedDark.checked,
+    };
+
+    developerEmbedUrl.value = buildDeveloperEmbedUrl(developerUuid, options);
+    developerEmbedPreview.src = buildDeveloperEmbedUrl(developerUuid, options, { cacheBust: true });
+    developerEmbedCopyStatus.textContent = "";
+  }
+
   function applyAccountDetails(nextAccount) {
     if (!nextAccount) return;
     currentAccount = nextAccount;
@@ -341,6 +480,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       }
     }
     renderAccountEmail();
+    refreshDeveloperEmbedPreview();
     updateDashboardSummary();
   }
 
@@ -468,6 +608,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
         editablePluginLinks: true,
         onPluginLinksSaved: async () => {
           await refreshLiveStats(false);
+        },
+        onPrivatePluginUuidRefreshed: async () => {
+          await loadPlugins(activePluginUuid);
         },
         onNotify: (message, type, target) => {
           showFeedback(message, type, target || liveContent);
@@ -722,6 +865,27 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   summaryEditNameButton?.addEventListener("click", onEditNameClick);
   accountEmailToggle.addEventListener("click", onToggleEmail);
 
+  developerEmbedTheme?.addEventListener("change", refreshDeveloperEmbedPreview);
+  developerEmbedLayout?.addEventListener("change", refreshDeveloperEmbedPreview);
+  developerEmbedSize?.addEventListener("change", refreshDeveloperEmbedPreview);
+  developerEmbedDark?.addEventListener("change", refreshDeveloperEmbedPreview);
+  developerEmbedCopy?.addEventListener("click", async () => {
+    if (!developerEmbedUrl || !developerEmbedCopyStatus) return;
+    try {
+      await navigator.clipboard.writeText(developerEmbedUrl.value);
+      developerEmbedCopyStatus.textContent = "Profile embed URL copied.";
+    } catch {
+      developerEmbedCopyStatus.textContent = "Copy failed. You can copy the URL field manually.";
+    }
+
+    if (developerEmbedCopyStatusTimeout) {
+      window.clearTimeout(developerEmbedCopyStatusTimeout);
+    }
+    developerEmbedCopyStatusTimeout = window.setTimeout(() => {
+      developerEmbedCopyStatus.textContent = "";
+    }, 2600);
+  });
+
   logoutButton.addEventListener("click", async () => {
     logoutButton.disabled = true;
     try {
@@ -735,6 +899,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   await loadPlugins();
   renderAccountEmail();
+  refreshDeveloperEmbedPreview();
   updateDashboardSummary();
 
   return {
@@ -742,6 +907,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       disposed = true;
       stopPolling();
       destroyAnalytics();
+      if (developerEmbedCopyStatusTimeout) {
+        window.clearTimeout(developerEmbedCopyStatusTimeout);
+      }
       summaryEditNameButton?.removeEventListener("click", onEditNameClick);
       accountEmailToggle.removeEventListener("click", onToggleEmail);
     },

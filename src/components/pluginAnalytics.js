@@ -1,5 +1,5 @@
 import { API_ROOT } from "../config";
-import { applyPluginLinks } from "../api/pluginApi";
+import { applyPluginLinks, refreshPrivatePluginUuid } from "../api/pluginApi";
 import { createChart, paletteFor, sortedCountEntries } from "./charts";
 import { statCard } from "./statCard";
 import { emptyState } from "./emptyState";
@@ -231,6 +231,36 @@ function formatPeakDetail(peak) {
     : `All-time peak: ${formatNumber(count)}`;
 }
 
+function formatDateTime(value) {
+  const parsed = parseHistoryTimestamp(value);
+  if (parsed === null) return "";
+  return new Date(parsed).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function resolvePrivateUuidRefreshError(error) {
+  const nextRefreshAt = formatDateTime(error?.payload?.next_refresh_at);
+  if (error?.status === 429) {
+    return nextRefreshAt
+      ? `Server reporting keys can only be refreshed once every 24 hours. You can refresh again after ${nextRefreshAt}.`
+      : "Server reporting keys can only be refreshed once every 24 hours.";
+  }
+
+  if (error?.status === 403) {
+    return "You do not have access to refresh this mod's private key.";
+  }
+
+  if (error?.status === 404) {
+    return "This mod could not be found.";
+  }
+
+  return error?.message || "Failed to refresh the private key.";
+}
+
 function renderCanvasOrEmpty(holderElement, canvasId, title, hasData) {
   if (!hasData) {
     holderElement.innerHTML = emptyState(title, "No data has been reported yet.");
@@ -350,6 +380,7 @@ export function renderPluginAnalytics(
     showUuid = true,
     editablePluginLinks = false,
     onPluginLinksSaved = null,
+    onPrivatePluginUuidRefreshed = null,
     onNotify = null,
   },
 ) {
@@ -376,10 +407,6 @@ export function renderPluginAnalytics(
   const dashboardSettingsMarkup = `
     <section class="surface">
       <div class="surface-body space-y-4">
-        <div>
-          <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">Mod Settings</p>
-          <p class="mt-2 text-2xl font-extrabold text-slate-900">${escapeHtml(pluginName)}</p>
-        </div>
         <div class="space-y-3 rounded-xl border border-sky-100 bg-slate-50 p-3">
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Mod ID</span>
@@ -397,17 +424,28 @@ export function renderPluginAnalytics(
             privatePluginUuid
               ? `
                 <div class="rounded-lg border border-red-300/70 bg-slate-900/[0.03] p-2.5">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-[11px] font-semibold uppercase tracking-wide text-red-700">Server Reporting Key (Private)</span>
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <span class="text-[11px] font-semibold uppercase tracking-wide text-red-700">Server Reporting Key (Private)</span>
+                      <button
+                        class="rounded-lg border border-red-300/70 bg-slate-900/[0.04] px-2.5 py-1 text-[11px] font-semibold text-red-700 transition hover:bg-slate-900/[0.08]"
+                        data-copy-value="${escapeHtml(privatePluginUuid)}"
+                        data-copy-label="Server Reporting Key"
+                        type="button"
+                      >
+                        Copy
+                      </button>
+                    </div>
                     <button
-                      class="rounded-lg border border-red-300/70 bg-slate-900/[0.04] px-2.5 py-1 text-[11px] font-semibold text-red-700 transition hover:bg-slate-900/[0.08]"
-                      data-copy-value="${escapeHtml(privatePluginUuid)}"
-                      data-copy-label="Server Reporting Key"
+                      id="private-plugin-uuid-refresh-trigger"
                       type="button"
+                      class="rounded-lg border border-red-300/70 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100"
                     >
-                      Copy
+                      Refresh Server Reporting Key
                     </button>
-                    <span class="text-[11px] text-slate-600">Keep this private. Used in your mod's code to report stats.</span>
+                  </div>
+                  <div class="mt-2 space-y-1">
+                    <span class="block text-[11px] text-slate-600">Keep this private. Used in your mod's code to report stats.</span>
                   </div>
                   <div
                     data-private-plugin-uuid
@@ -452,6 +490,48 @@ export function renderPluginAnalytics(
             </label>
           </form>
         </div>
+        ${
+          privatePluginUuid
+            ? `
+              <div
+                id="private-plugin-uuid-refresh-modal"
+                class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 p-4"
+                aria-hidden="true"
+              >
+                <div
+                  class="surface w-full max-w-lg"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="private-plugin-uuid-refresh-title"
+                >
+                  <div class="surface-body space-y-4">
+                    <div>
+                      <p class="text-xs font-semibold uppercase tracking-wide text-red-700">Confirm Key Refresh</p>
+                      <h3 id="private-plugin-uuid-refresh-title" class="mt-2 text-xl font-extrabold text-slate-900">Refresh Server Reporting Key?</h3>
+                    </div>
+                    <div class="space-y-3 text-sm text-slate-700">
+                      <p>
+                        Use this if your mod's private server reporting key has been leaked or exposed.
+                      </p>
+                      <p>
+                        Refreshing this key will immediately invalidate the old private key used by servers to report stats. Your public Mod ID and existing stats will stay the same.
+                      </p>
+                      <p class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-800">
+                        This action can only be done once every 24 hours for the same mod.
+                      </p>
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-2">
+                      <button id="private-plugin-uuid-refresh-cancel" type="button" class="btn-secondary">Cancel</button>
+                      <button id="private-plugin-uuid-refresh-confirm" type="button" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
+                        Refresh Key
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `
+            : ""
+        }
       </div>
     </section>
   `;
@@ -664,6 +744,10 @@ export function renderPluginAnalytics(
   const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
   const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
   const pluginLinksSubmit = container.querySelector("#plugin-links-submit");
+  const refreshPrivateKeyTrigger = container.querySelector("#private-plugin-uuid-refresh-trigger");
+  const refreshPrivateKeyModal = container.querySelector("#private-plugin-uuid-refresh-modal");
+  const refreshPrivateKeyCancel = container.querySelector("#private-plugin-uuid-refresh-cancel");
+  const refreshPrivateKeyConfirm = container.querySelector("#private-plugin-uuid-refresh-confirm");
 
   const bindListener = (element, eventName, handler) => {
     if (!element) return;
@@ -727,6 +811,20 @@ export function renderPluginAnalytics(
   renderVersions();
   renderCoPlugins();
 
+  const closeRefreshPrivateKeyModal = () => {
+    if (!refreshPrivateKeyModal) return;
+    refreshPrivateKeyModal.classList.add("hidden");
+    refreshPrivateKeyModal.classList.remove("flex");
+    refreshPrivateKeyModal.setAttribute("aria-hidden", "true");
+  };
+
+  const openRefreshPrivateKeyModal = () => {
+    if (!refreshPrivateKeyModal) return;
+    refreshPrivateKeyModal.classList.remove("hidden");
+    refreshPrivateKeyModal.classList.add("flex");
+    refreshPrivateKeyModal.setAttribute("aria-hidden", "false");
+  };
+
   if (privatePluginKey) {
     const togglePrivatePluginKey = () => {
       const isRevealed = privatePluginKey.getAttribute("aria-expanded") === "true";
@@ -740,6 +838,63 @@ export function renderPluginAnalytics(
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
       togglePrivatePluginKey();
+    });
+  }
+
+  if (refreshPrivateKeyTrigger) {
+    bindListener(refreshPrivateKeyTrigger, "click", openRefreshPrivateKeyModal);
+  }
+
+  if (refreshPrivateKeyCancel) {
+    bindListener(refreshPrivateKeyCancel, "click", closeRefreshPrivateKeyModal);
+  }
+
+  if (refreshPrivateKeyModal) {
+    bindListener(refreshPrivateKeyModal, "click", (event) => {
+      if (event.target === refreshPrivateKeyModal) {
+        closeRefreshPrivateKeyModal();
+      }
+    });
+    bindListener(refreshPrivateKeyModal, "keydown", (event) => {
+      if (event.key === "Escape") {
+        closeRefreshPrivateKeyModal();
+      }
+    });
+  }
+
+  if (refreshPrivateKeyConfirm && refreshPrivateKeyTrigger) {
+    bindListener(refreshPrivateKeyConfirm, "click", async () => {
+      refreshPrivateKeyConfirm.disabled = true;
+      refreshPrivateKeyTrigger.disabled = true;
+      refreshPrivateKeyConfirm.textContent = "Refreshing...";
+
+      try {
+        const result = await refreshPrivatePluginUuid(pluginUuid);
+        closeRefreshPrivateKeyModal();
+
+        if (typeof onPrivatePluginUuidRefreshed === "function") {
+          await onPrivatePluginUuidRefreshed(result);
+        }
+
+        const nextRefreshAt = formatDateTime(result?.next_refresh_at);
+        if (typeof onNotify === "function") {
+          onNotify(
+            nextRefreshAt
+              ? `Server reporting key refreshed. You can refresh it again after ${nextRefreshAt}.`
+              : "Server reporting key refreshed.",
+            "success",
+            refreshPrivateKeyTrigger,
+          );
+        }
+      } catch (error) {
+        if (typeof onNotify === "function") {
+          onNotify(resolvePrivateUuidRefreshError(error), "error", refreshPrivateKeyTrigger);
+        }
+      } finally {
+        refreshPrivateKeyConfirm.disabled = false;
+        refreshPrivateKeyTrigger.disabled = false;
+        refreshPrivateKeyConfirm.textContent = "Refresh Key";
+      }
     });
   }
 

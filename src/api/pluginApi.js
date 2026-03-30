@@ -31,6 +31,15 @@ export function applyPluginLinks(pluginUuid, githubLink, curseforgeLink) {
   });
 }
 
+export function refreshPrivatePluginUuid(pluginUuid) {
+  return apiRequest("/plugin/refresh-private-plugin-uuid", {
+    method: "POST",
+    body: {
+      plugin_uuid: pluginUuid,
+    },
+  });
+}
+
 export function listPlugins(searchOrOptions = "", signal) {
   let search = "";
   let page = 1;
