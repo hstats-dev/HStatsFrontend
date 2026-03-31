@@ -8,6 +8,7 @@ import { emptyState } from "../components/emptyState";
 import { errorState } from "../components/errorState";
 import { renderPluginAnalytics } from "../components/pluginAnalytics";
 import { escapeHtml } from "../utils/escapeHtml";
+import { mountKofiOverlay, removeKofiOverlay } from "../utils/kofi";
 
 const DEFAULT_PROFILE_EMBED_OPTIONS = {
   theme: "light",
@@ -119,6 +120,8 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     container.innerHTML = errorState("You must be logged in to view the dashboard.");
     return { cleanup: () => {} };
   }
+
+  void mountKofiOverlay().catch(() => {});
 
   let pluginItems = [];
   let activePluginUuid = null;
@@ -907,6 +910,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       disposed = true;
       stopPolling();
       destroyAnalytics();
+      removeKofiOverlay();
       if (developerEmbedCopyStatusTimeout) {
         window.clearTimeout(developerEmbedCopyStatusTimeout);
       }

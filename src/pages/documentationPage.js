@@ -1,4 +1,5 @@
 import { escapeHtml } from "../utils/escapeHtml";
+import { mountInlineKofiWidget } from "../utils/kofi";
 
 const PUBLIC_API_BASE = "https://api.hstats.dev/api";
 const PUBLIC_API_BASE_DISPLAY = "api.hstats.dev/api";
@@ -493,6 +494,8 @@ function renderStatsApiTab() {
 }
 
 export async function mountDocumentationPage({ container }) {
+  let cleanupKofiWidget = () => {};
+
   container.innerHTML = `
     <section class="space-y-6">
       <header class="space-y-4">
@@ -522,12 +525,24 @@ export async function mountDocumentationPage({ container }) {
 
       ${renderIntegrationTab()}
       ${renderStatsApiTab()}
+
+      <section class="surface">
+        <div class="surface-body flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Support HStats</p>
+            <h2 class="mt-1 text-lg font-bold text-slate-900">Help fund hosting and development</h2>
+            <p class="muted mt-1 max-w-2xl">If these docs or the HStats API save you time, Ko-fi donations help keep the service running.</p>
+          </div>
+          <div id="docs-kofi-widget" class="shrink-0"></div>
+        </div>
+      </section>
     </section>
   `;
 
   const listeners = [];
   const integrationTab = container.querySelector("#docs-tab-integration");
   const statsTab = container.querySelector("#docs-tab-stats");
+  const docsKofiWidget = container.querySelector("#docs-kofi-widget");
   const tabButtons = Array.from(container.querySelectorAll("button[data-docs-tab]"));
   const exampleButtons = Array.from(container.querySelectorAll("button[data-action='toggle-example']"));
   const endpointJumpButtons = Array.from(container.querySelectorAll("button[data-action='jump-endpoint']"));
@@ -587,10 +602,12 @@ export async function mountDocumentationPage({ container }) {
   });
 
   setActiveTab("integration");
+  cleanupKofiWidget = mountInlineKofiWidget(docsKofiWidget);
 
   return {
     cleanup: () => {
       listeners.forEach((remove) => remove());
+      cleanupKofiWidget();
     },
   };
 }

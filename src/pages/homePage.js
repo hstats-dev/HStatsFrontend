@@ -1,10 +1,59 @@
 import { getGlobalStats } from "../api/serverApi";
+import { createChart } from "../components/charts";
 import { errorState } from "../components/errorState";
 import { formatNumber } from "../utils/format";
+import { mountInlineKofiWidget } from "../utils/kofi";
+
+const EXAMPLE_MOD_TREND = [
+  { time: "06:00", servers: 64, players: 92 },
+  { time: "09:00", servers: 88, players: 121 },
+  { time: "12:00", servers: 116, players: 153 },
+  { time: "15:00", servers: 160, players: 182 },
+  { time: "18:00", servers: 130, players: 190 },
+  { time: "21:00", servers: 110, players: 163 },
+];
+
+function renderExampleTrendCard() {
+  return `
+    <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 shadow-inner">
+      <div class="rounded-xl border border-slate-700 bg-slate-900/90 p-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-sky-300">Example Mod Trend</p>
+            <p class="mt-1 text-base font-bold text-white">Sample 24-hour usage curve</p>
+          </div>
+        </div>
+
+        <div class="mt-3 grid gap-2 sm:grid-cols-3">
+          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+            <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Servers</p>
+            <p class="mt-1 text-lg font-extrabold text-white">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.servers)))}</p>
+          </div>
+          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+            <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Players</p>
+            <p class="mt-1 text-lg font-extrabold text-white">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.players)))}</p>
+          </div>
+          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
+            <p class="text-[11px] uppercase tracking-wide text-slate-500">Update Window</p>
+            <p class="mt-1 text-lg font-extrabold text-white">24h</p>
+          </div>
+        </div>
+
+        <div class="mt-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 px-3 py-3">
+          <div class="h-52">
+            <canvas id="home-example-trend-canvas" aria-label="Example mod servers and players trend chart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 export async function mountHomePage({ container }) {
   let isDisposed = false;
   let refreshTimer = null;
+  let exampleTrendChart = null;
+  let cleanupKofiWidget = () => {};
 
   container.innerHTML = `
     <section class="space-y-8">
@@ -84,19 +133,8 @@ export async function mountHomePage({ container }) {
                 </article>
               </div>
             </div>
-            <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 shadow-inner">
-              <div class="overflow-hidden rounded-xl border border-slate-700 bg-black">
-                <div class="aspect-video w-full max-w-md mx-auto">
-                  <iframe
-                    class="h-full w-full"
-                    src="https://www.youtube.com/embed/WTAE_Djbq2c?si=MWFTEHpUyYw2hsL4"
-                    title="HStats Demo"
-                    loading="lazy"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen
-                  ></iframe>
-                </div>
-              </div>
+            <div>
+              ${renderExampleTrendCard()}
             </div>
           </div>
         </div>
@@ -121,6 +159,17 @@ export async function mountHomePage({ container }) {
           </div>
         </div>
       </section>
+
+      <section class="surface">
+        <div class="surface-body flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Support HStats</p>
+            <h2 class="mt-1 text-lg font-bold text-slate-900">Donations help keep HStats online</h2>
+            <p class="muted mt-1 max-w-2xl">If HStats is useful for your mod or server, Ko-fi support helps cover hosting and future development.</p>
+          </div>
+          <div id="home-kofi-widget" class="shrink-0"></div>
+        </div>
+      </section>
     </section>
   `;
 
@@ -128,6 +177,8 @@ export async function mountHomePage({ container }) {
   const developersCountElement = container.querySelector("#home-developers-count");
   const modsCountElement = container.querySelector("#home-mods-count");
   const communityStatsElement = container.querySelector("#home-community-stats");
+  const exampleTrendCanvas = container.querySelector("#home-example-trend-canvas");
+  const homeKofiWidget = container.querySelector("#home-kofi-widget");
 
   function renderHeroStrip(data) {
     const serverCount = formatNumber(data?.online_servers || 0);
@@ -157,6 +208,72 @@ export async function mountHomePage({ container }) {
     }
   }
 
+  if (exampleTrendCanvas) {
+    exampleTrendChart = createChart(exampleTrendCanvas, {
+      type: "line",
+      data: {
+        labels: EXAMPLE_MOD_TREND.map((point) => point.time),
+        datasets: [
+          {
+            label: "Servers",
+            data: EXAMPLE_MOD_TREND.map((point) => point.servers),
+            borderColor: "#ff2d2d",
+            backgroundColor: "rgba(255, 45, 45, 0.16)",
+            fill: true,
+            tension: 0.35,
+          },
+          {
+            label: "Players",
+            data: EXAMPLE_MOD_TREND.map((point) => point.players),
+            borderColor: "#79ea00",
+            backgroundColor: "rgba(132, 255, 0, 0.14)",
+            fill: true,
+            tension: 0.35,
+          },
+        ],
+      },
+      options: {
+        interaction: {
+          mode: "index",
+          intersect: false,
+        },
+        scales: {
+          x: {
+            grid: {
+              color: "rgba(148, 163, 184, 0.12)",
+            },
+            ticks: {
+              color: "#94a3b8",
+            },
+          },
+          y: {
+            beginAtZero: false,
+            grid: {
+              color: "rgba(148, 163, 184, 0.12)",
+            },
+            ticks: {
+              color: "#94a3b8",
+            },
+          },
+        },
+        plugins: {
+          legend: {
+            labels: {
+              color: "#cbd5e1",
+            },
+          },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.96)",
+            titleColor: "#f8fafc",
+            bodyColor: "#e2e8f0",
+          },
+        },
+      },
+    });
+  }
+
+  cleanupKofiWidget = mountInlineKofiWidget(homeKofiWidget);
+
   await refreshGlobalData({ initial: true });
   refreshTimer = window.setInterval(() => {
     if (isDisposed) return;
@@ -167,10 +284,11 @@ export async function mountHomePage({ container }) {
     cleanup: () => {
       isDisposed = true;
       if (refreshTimer) window.clearInterval(refreshTimer);
+      if (exampleTrendChart) exampleTrendChart.destroy();
+      cleanupKofiWidget();
     },
   };
 }
-
 
 
 
