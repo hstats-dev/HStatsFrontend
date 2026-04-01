@@ -1,10 +1,17 @@
 import { API_ROOT } from "../config";
 import { applyPluginLinks, refreshPrivatePluginUuid } from "../api/pluginApi";
-import { createChart, paletteFor, sortedCountEntries } from "./charts";
+import {
+  createChart,
+  createTimeSeriesChart,
+  formatDateTimeLocalInputValue,
+  parseDateTimeLocalInputValue,
+  paletteFor,
+  sortedCountEntries,
+} from "./charts";
 import { statCard } from "./statCard";
 import { emptyState } from "./emptyState";
 import { renderDeveloperButtons } from "./developerLinks";
-import { formatDateLabel, formatNumber } from "../utils/format";
+import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
 
 const DEFAULT_EMBED_OPTIONS = {
@@ -96,19 +103,6 @@ function normalizePluginHistory(history) {
       if (b._timestamp === null) return -1;
       return a._timestamp - b._timestamp;
     });
-}
-
-function formatHistoryLabel(point) {
-  if (point?._timestamp !== null) {
-    return new Date(point._timestamp).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }
-
-  return formatDateLabel(point?.day || point?._timestampSource || "");
 }
 
 function normalizeVersionEntries(versions) {
@@ -271,8 +265,71 @@ function renderCanvasOrEmpty(holderElement, canvasId, title, hasData) {
     <div class="surface h-full">
       <div class="surface-body">
         <p class="text-sm font-semibold text-slate-800">${escapeHtml(title)}</p>
-        <div class="mt-4 h-64">
-          <canvas id="${canvasId}"></canvas>
+        <div class="chart-plot-surface mt-4">
+          <div class="h-64">
+            <canvas id="${canvasId}"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  return holderElement.querySelector("canvas");
+}
+
+function renderMarkerToggleButton(showMarkers) {
+  return `
+    <button
+      type="button"
+      data-plugin-history-toggle-markers
+      class="${
+        showMarkers
+          ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+          : "btn-secondary px-3 py-1.5 text-xs"
+      }"
+      aria-pressed="${showMarkers ? "true" : "false"}"
+    >
+      ${showMarkers ? "Hide Markers" : "Show Markers"}
+    </button>
+  `;
+}
+
+function renderTimeChartCard(holderElement, { title, canvasId, hasSourceData, fromValue, toValue, showMarkers }) {
+  if (!hasSourceData) {
+    holderElement.innerHTML = emptyState(title, "No data has been reported yet.");
+    return null;
+  }
+
+  holderElement.innerHTML = `
+    <div class="surface h-full">
+      <div class="surface-body space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">${escapeHtml(title)}</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${renderMarkerToggleButton(showMarkers)}
+            <button type="button" data-plugin-history-range="24h" class="btn-secondary px-3 py-1.5 text-xs">24h</button>
+            <button type="button" data-plugin-history-range="7d" class="btn-secondary px-3 py-1.5 text-xs">7d</button>
+            <button type="button" data-plugin-history-range="30d" class="btn-secondary px-3 py-1.5 text-xs">30d</button>
+            <button type="button" data-plugin-history-range="all" class="btn-secondary px-3 py-1.5 text-xs">All</button>
+            <button type="button" data-plugin-history-reset-zoom class="btn-secondary px-3 py-1.5 text-xs">Reset Zoom</button>
+          </div>
+        </div>
+        <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <label class="grid gap-1 text-xs font-semibold text-slate-600">
+            From
+            <input id="plugin-history-from" type="datetime-local" class="input-base py-2" value="${escapeHtml(fromValue)}" />
+          </label>
+          <label class="grid gap-1 text-xs font-semibold text-slate-600">
+            To
+            <input id="plugin-history-to" type="datetime-local" class="input-base py-2" value="${escapeHtml(toValue)}" />
+          </label>
+          <div class="flex items-end">
+            <button type="button" id="plugin-history-apply" class="btn-secondary w-full">Apply Range</button>
+          </div>
+        </div>
+        <div class="time-chart-surface mt-1 h-80">
+          <canvas id="${canvasId}" class="h-full w-full"></canvas>
         </div>
       </div>
     </div>
@@ -381,10 +438,40 @@ export function renderPluginAnalytics(
     editablePluginLinks = false,
     onPluginLinksSaved = null,
     onPrivatePluginUuidRefreshed = null,
+    historyRangeState = null,
+    markerState = null,
+    importantMarkers = [],
     onNotify = null,
   },
 ) {
   const history = normalizePluginHistory(Array.isArray(pluginInfo.history) ? pluginInfo.history : []);
+  const effectiveHistoryRangeState =
+    historyRangeState && typeof historyRangeState === "object"
+      ? historyRangeState
+      : {
+          fromInput: "",
+          toInput: "",
+        };
+  const effectiveMarkerState =
+    markerState && typeof markerState === "object"
+      ? markerState
+      : {
+          showMarkers: true,
+        };
+  if (typeof effectiveMarkerState.showMarkers !== "boolean") {
+    effectiveMarkerState.showMarkers = true;
+  }
+  const historyTimestamps = history.map((point) => point._timestamp).filter((value) => value !== null);
+  const historyMin = historyTimestamps.length > 0 ? historyTimestamps[0] : null;
+  const historyMax = historyTimestamps.length > 0 ? historyTimestamps[historyTimestamps.length - 1] : null;
+  if (!effectiveHistoryRangeState.fromInput && historyMin !== null) {
+    effectiveHistoryRangeState.fromInput = formatDateTimeLocalInputValue(historyMin);
+  }
+  if (!effectiveHistoryRangeState.toInput && historyMax !== null) {
+    effectiveHistoryRangeState.toInput = formatDateTimeLocalInputValue(historyMax);
+  }
+  let parsedHistoryFrom = parseDateTimeLocalInputValue(effectiveHistoryRangeState.fromInput);
+  let parsedHistoryTo = parseDateTimeLocalInputValue(effectiveHistoryRangeState.toInput);
   const countries = sortedCountEntries(pluginInfo.countries);
   const javaVersions = sortedCountEntries(pluginInfo.java_versions);
   const osNames = sortedCountEntries(pluginInfo.os_names);
@@ -691,16 +778,22 @@ export function renderPluginAnalytics(
   `;
 
   const chartInstances = [];
+  let historyChart = null;
   const listenersCleanup = [];
   let copyStatusTimeout = null;
   let versionSortMode = "count";
   let coPluginsExpanded = false;
 
-  const historyCanvas = renderCanvasOrEmpty(
+  const historyCanvas = renderTimeChartCard(
     container.querySelector("#plugin-history-holder"),
-    "plugin-history-canvas",
-    "Server and Player History",
-    history.length > 0,
+    {
+      title: "Server and Player History",
+      canvasId: "plugin-history-canvas",
+      hasSourceData: history.length > 0,
+      fromValue: effectiveHistoryRangeState.fromInput,
+      toValue: effectiveHistoryRangeState.toInput,
+      showMarkers: effectiveMarkerState.showMarkers,
+    },
   );
   const countriesCanvas = renderCanvasOrEmpty(
     container.querySelector("#plugin-countries-holder"),
@@ -744,6 +837,12 @@ export function renderPluginAnalytics(
   const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
   const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
   const pluginLinksSubmit = container.querySelector("#plugin-links-submit");
+  const pluginHistoryFrom = container.querySelector("#plugin-history-from");
+  const pluginHistoryTo = container.querySelector("#plugin-history-to");
+  const pluginHistoryApply = container.querySelector("#plugin-history-apply");
+  const pluginHistoryPresetButtons = Array.from(container.querySelectorAll("button[data-plugin-history-range]"));
+  const pluginHistoryResetZoom = container.querySelector("button[data-plugin-history-reset-zoom]");
+  const pluginHistoryToggleMarkers = container.querySelector("button[data-plugin-history-toggle-markers]");
   const refreshPrivateKeyTrigger = container.querySelector("#private-plugin-uuid-refresh-trigger");
   const refreshPrivateKeyModal = container.querySelector("#private-plugin-uuid-refresh-modal");
   const refreshPrivateKeyCancel = container.querySelector("#private-plugin-uuid-refresh-cancel");
@@ -988,44 +1087,93 @@ export function renderPluginAnalytics(
     bindListener(copyUrlButton, "click", onCopyUrlClick);
   }
 
-  if (historyCanvas) {
-    chartInstances.push(
-      createChart(historyCanvas, {
-        type: "line",
-        data: {
-          labels: history.map((point) => formatHistoryLabel(point)),
-          datasets: [
-            {
-              label: "Servers",
-              data: history.map((point) => Number(point.servers_count) || 0),
-              borderColor: "#ff2d2d",
-              backgroundColor: "rgba(255, 45, 45, 0.2)",
-              fill: true,
-              tension: 0.35,
-            },
-            {
-              label: "Players",
-              data: history.map((point) => Number(point.players_count) || 0),
-              borderColor: "#79ea00",
-              backgroundColor: "rgba(132, 255, 0, 0.2)",
-              fill: true,
-              tension: 0.35,
-            },
-          ],
-        },
-        options: {
-          scales: {
-            x: {
-              ticks: {
-                autoSkip: true,
-                maxTicksLimit: 9,
-              },
-            },
+  const renderPluginHistoryChart = () => {
+    if (!historyCanvas) return;
+    if (historyChart) {
+      historyChart.destroy();
+    }
+    historyChart = createTimeSeriesChart(historyCanvas, {
+        min: parsedHistoryFrom ?? undefined,
+        max: parsedHistoryTo ?? undefined,
+        maxTicksLimit: 9,
+        markers: importantMarkers,
+        showMarkers: effectiveMarkerState.showMarkers,
+        datasets: [
+          {
+            label: "Servers",
+            data: history
+              .filter((point) => point._timestamp !== null)
+              .map((point) => ({ x: point._timestamp, y: Number(point.servers_count) || 0 })),
+            borderColor: "#ff2d2d",
+            backgroundColor: "rgba(255, 45, 45, 0.2)",
           },
-        },
-      }),
-    );
+          {
+            label: "Players",
+            data: history
+              .filter((point) => point._timestamp !== null)
+              .map((point) => ({ x: point._timestamp, y: Number(point.players_count) || 0 })),
+            borderColor: "#79ea00",
+            backgroundColor: "rgba(132, 255, 0, 0.2)",
+          },
+        ],
+      });
+  };
+
+  if (historyCanvas) {
+    renderPluginHistoryChart();
   }
+
+  const applyPluginHistoryRange = () => {
+    if (!historyCanvas) return;
+    const nextFrom = pluginHistoryFrom?.value || "";
+    const nextTo = pluginHistoryTo?.value || "";
+    const nextFromTimestamp = parseDateTimeLocalInputValue(nextFrom);
+    const nextToTimestamp = parseDateTimeLocalInputValue(nextTo);
+
+    if (nextFromTimestamp !== null && nextToTimestamp !== null && nextFromTimestamp > nextToTimestamp) {
+      window.alert("The start time must be before the end time.");
+      return;
+    }
+
+    effectiveHistoryRangeState.fromInput = nextFrom;
+    effectiveHistoryRangeState.toInput = nextTo;
+    parsedHistoryFrom = nextFromTimestamp;
+    parsedHistoryTo = nextToTimestamp;
+    renderPluginHistoryChart();
+  };
+
+  bindListener(pluginHistoryApply, "click", applyPluginHistoryRange);
+  pluginHistoryPresetButtons.forEach((button) => {
+    bindListener(button, "click", () => {
+      const preset = button.getAttribute("data-plugin-history-range");
+      if (!preset || historyMax === null) return;
+
+      if (preset === "all" || historyMin === null) {
+        if (pluginHistoryFrom) pluginHistoryFrom.value = historyMin !== null ? formatDateTimeLocalInputValue(historyMin) : "";
+        if (pluginHistoryTo) pluginHistoryTo.value = historyMax !== null ? formatDateTimeLocalInputValue(historyMax) : "";
+        applyPluginHistoryRange();
+        return;
+      }
+
+      const hours = preset === "24h" ? 24 : preset === "7d" ? 24 * 7 : 24 * 30;
+      const start = Math.max(historyMin ?? historyMax, historyMax - hours * 60 * 60 * 1000);
+      if (pluginHistoryFrom) pluginHistoryFrom.value = formatDateTimeLocalInputValue(start);
+      if (pluginHistoryTo) pluginHistoryTo.value = formatDateTimeLocalInputValue(historyMax);
+      applyPluginHistoryRange();
+    });
+  });
+  bindListener(pluginHistoryResetZoom, "click", () => {
+    historyChart?.resetZoom?.();
+  });
+  bindListener(pluginHistoryToggleMarkers, "click", () => {
+    effectiveMarkerState.showMarkers = !effectiveMarkerState.showMarkers;
+    renderPluginHistoryChart();
+    pluginHistoryToggleMarkers.textContent = effectiveMarkerState.showMarkers ? "Hide Markers" : "Show Markers";
+    pluginHistoryToggleMarkers.setAttribute("aria-pressed", effectiveMarkerState.showMarkers ? "true" : "false");
+    pluginHistoryToggleMarkers.className = effectiveMarkerState.showMarkers
+      ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+      : "btn-secondary px-3 py-1.5 text-xs";
+  });
 
   if (countriesCanvas) {
     chartInstances.push(
@@ -1113,6 +1261,7 @@ export function renderPluginAnalytics(
   }
 
   return () => {
+    historyChart?.destroy();
     chartInstances.forEach((chart) => chart.destroy());
     listenersCleanup.forEach((cleanup) => cleanup());
     if (copyStatusTimeout) {

@@ -1,11 +1,13 @@
 import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
 import { applyCurseforgeLink, applyGithubLink, applyUsername, logoutAccount } from "../api/accountApi";
+import { getImportantDateMarkers } from "../api/serverApi";
 import { API_ROOT, DASHBOARD_REFRESH_MS } from "../config";
 import { pairPluginAccess } from "../utils/pluginAccess";
 import { formatNumber, formatTimestamp } from "../utils/format";
 import { loadingState } from "../components/loadingState";
 import { emptyState } from "../components/emptyState";
 import { errorState } from "../components/errorState";
+import { normalizeImportantDateMarkers } from "../components/charts";
 import { renderPluginAnalytics } from "../components/pluginAnalytics";
 import { escapeHtml } from "../utils/escapeHtml";
 import { mountKofiOverlay, removeKofiOverlay } from "../utils/kofi";
@@ -131,6 +133,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   let currentAccount = account;
   let isEmailRevealed = false;
   let developerEmbedCopyStatusTimeout = null;
+  const pluginHistoryRangeStates = new Map();
+  const pluginMarkerStates = new Map();
+  let importantMarkers = [];
 
   function normalizeEmailValue(email) {
     if (typeof email !== "string") return "";
@@ -609,6 +614,21 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           },
         },
         editablePluginLinks: true,
+        historyRangeState:
+          pluginHistoryRangeStates.get(activePluginUuid) ||
+          (() => {
+            const nextState = { fromInput: "", toInput: "" };
+            pluginHistoryRangeStates.set(activePluginUuid, nextState);
+            return nextState;
+          })(),
+        markerState:
+          pluginMarkerStates.get(activePluginUuid) ||
+          (() => {
+            const nextState = { showMarkers: true };
+            pluginMarkerStates.set(activePluginUuid, nextState);
+            return nextState;
+          })(),
+        importantMarkers,
         onPluginLinksSaved: async () => {
           await refreshLiveStats(false);
         },
@@ -899,6 +919,13 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     setAccount(null);
     navigate("/", { replace: true });
   });
+
+  try {
+    const markerPayload = await getImportantDateMarkers({ limit: 1000 });
+    importantMarkers = normalizeImportantDateMarkers(markerPayload);
+  } catch {
+    importantMarkers = normalizeImportantDateMarkers([]);
+  }
 
   await loadPlugins();
   renderAccountEmail();

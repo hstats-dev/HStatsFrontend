@@ -1,5 +1,7 @@
 import { getPluginOwnership } from "../api/accountApi";
 import { getPluginInfo } from "../api/pluginApi";
+import { getImportantDateMarkers } from "../api/serverApi";
+import { normalizeImportantDateMarkers } from "../components/charts";
 import { loadingState } from "../components/loadingState";
 import { errorState } from "../components/errorState";
 import { renderPluginAnalytics } from "../components/pluginAnalytics";
@@ -7,6 +9,8 @@ import { setPageSeo } from "../utils/seo";
 
 export async function mountModDetailsPage({ container, params }) {
   const pluginUuid = params.pluginUuid;
+  const historyRangeState = { fromInput: "", toInput: "" };
+  const markerState = { showMarkers: true };
   if (!pluginUuid) {
     container.innerHTML = errorState("Missing Mod ID.");
     return { cleanup: () => {} };
@@ -28,10 +32,12 @@ export async function mountModDetailsPage({ container, params }) {
   const body = container.querySelector("#mod-detail-body");
 
   try {
-    const [pluginInfo, ownershipInfo] = await Promise.all([
+    const [pluginInfo, ownershipInfo, markerPayload] = await Promise.all([
       getPluginInfo(pluginUuid),
       getPluginOwnership(pluginUuid).catch(() => null),
+      getImportantDateMarkers({ limit: 1000 }).catch(() => ({ markers: [] })),
     ]);
+    const importantMarkers = normalizeImportantDateMarkers(markerPayload);
 
     const pluginName = String(pluginInfo.name || "Mod").trim() || "Mod";
     setPageSeo({
@@ -51,6 +57,9 @@ export async function mountModDetailsPage({ container, params }) {
         },
       },
       showUuid: false,
+      historyRangeState,
+      markerState,
+      importantMarkers,
     });
     return { cleanup: destroyCharts };
   } catch (error) {

@@ -1,6 +1,14 @@
-import { getGlobalHistory, getGlobalStats, getRecentActivity } from "../api/serverApi";
+import { getGlobalHistory, getGlobalStats, getImportantDateMarkers, getRecentActivity } from "../api/serverApi";
 import { OVERALL_STATS_REFRESH_MS } from "../config";
-import { createChart, paletteFor, sortedCountEntries } from "../components/charts";
+import {
+  createChart,
+  createTimeSeriesChart,
+  formatDateTimeLocalInputValue,
+  normalizeImportantDateMarkers,
+  parseDateTimeLocalInputValue,
+  paletteFor,
+  sortedCountEntries,
+} from "../components/charts";
 import { statCard } from "../components/statCard";
 import { loadingState } from "../components/loadingState";
 import { emptyState } from "../components/emptyState";
@@ -120,16 +128,6 @@ function normalizeGlobalHistory(payload) {
     });
 }
 
-function formatHistoryLabel(point) {
-  if (point?._timestamp === null) return "Unknown";
-  return new Date(point._timestamp).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function normalizeRecentActivity(payload) {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.recentActivity)) return payload.recentActivity;
@@ -184,8 +182,10 @@ function renderChartOrEmpty(holder, title, canvasId, hasData) {
     <div class="surface h-full">
       <div class="surface-body">
         <p class="text-sm font-semibold text-slate-800">${title}</p>
-        <div class="mt-4 h-64">
+        <div class="chart-plot-surface mt-4">
+          <div class="h-64">
           <canvas id="${canvasId}"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -194,24 +194,71 @@ function renderChartOrEmpty(holder, title, canvasId, hasData) {
   return holder.querySelector("canvas");
 }
 
-function renderLineChartOrEmpty(holder, title, canvasId, hasData) {
-  if (!hasData) {
-    holder.innerHTML = emptyState(title, "No data points are available right now.");
-    return null;
-  }
+function renderMarkerToggleButton(showMarkers) {
+  return `
+    <button
+      type="button"
+      data-history-toggle-markers
+      class="${
+        showMarkers
+          ? "rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition hover:bg-amber-100"
+          : "btn-secondary px-3 py-1.5 text-xs"
+      }"
+      aria-pressed="${showMarkers ? "true" : "false"}"
+    >
+      ${showMarkers ? "Hide Markers" : "Show Markers"}
+    </button>
+  `;
+}
 
+function renderTimeChartCard(holder, { title, canvasId, hasFilteredData, fromValue, toValue, showMarkers }) {
   holder.innerHTML = `
     <div class="surface h-full">
-      <div class="surface-body">
-        <p class="text-sm font-semibold text-slate-800">${title}</p>
-        <div class="mt-4 h-80 rounded-lg border border-sky-100 bg-slate-50/40 p-2 sm:h-96">
-          <canvas id="${canvasId}" class="h-full w-full"></canvas>
+      <div class="surface-body space-y-4">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-sm font-semibold text-slate-800">${escapeHtml(title)}</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            ${renderMarkerToggleButton(showMarkers)}
+            <button type="button" data-history-range="24h" class="btn-secondary px-3 py-1.5 text-xs">24h</button>
+            <button type="button" data-history-range="7d" class="btn-secondary px-3 py-1.5 text-xs">7d</button>
+            <button type="button" data-history-range="30d" class="btn-secondary px-3 py-1.5 text-xs">30d</button>
+            <button type="button" data-history-range="all" class="btn-secondary px-3 py-1.5 text-xs">All</button>
+            <button type="button" data-history-reset-zoom class="btn-secondary px-3 py-1.5 text-xs">Reset Zoom</button>
+          </div>
         </div>
+        <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
+          <label class="grid gap-1 text-xs font-semibold text-slate-600">
+            From
+            <input id="overall-history-from" type="datetime-local" class="input-base py-2" value="${escapeHtml(fromValue)}" />
+          </label>
+          <label class="grid gap-1 text-xs font-semibold text-slate-600">
+            To
+            <input id="overall-history-to" type="datetime-local" class="input-base py-2" value="${escapeHtml(toValue)}" />
+          </label>
+          <div class="flex items-end">
+            <button type="button" id="overall-history-apply" class="btn-secondary w-full">Apply Range</button>
+          </div>
+        </div>
+        ${
+          hasFilteredData
+            ? `
+              <div class="time-chart-surface h-80 sm:h-96">
+                <canvas id="${canvasId}" class="h-full w-full"></canvas>
+              </div>
+            `
+            : `
+              <div class="time-chart-empty">
+                No history points fall inside the selected time range.
+              </div>
+            `
+        }
       </div>
     </div>
   `;
 
-  return holder.querySelector("canvas");
+  return hasFilteredData ? holder.querySelector("canvas") : null;
 }
 
 function formatCoreLabel(label) {
@@ -223,6 +270,16 @@ export async function mountOverallStatsPage({ container }) {
   let statsRefreshHandle = null;
   let activityRefreshHandle = null;
   let isDisposed = false;
+  let historyRangeState = {
+    mode: "recent",
+    fromInput: "",
+    toInput: "",
+  };
+  const historyMarkerState = {
+    showMarkers: true,
+  };
+  let importantMarkers = [];
+  let markersLoaded = false;
 
   container.innerHTML = `
     <section class="space-y-6">
@@ -262,11 +319,33 @@ export async function mountOverallStatsPage({ container }) {
     chartInstances = [];
   };
 
+  async function ensureImportantMarkersLoaded() {
+    if (markersLoaded) return;
+    markersLoaded = true;
+    try {
+      const payload = await getImportantDateMarkers({ limit: 1000 });
+      if (isDisposed) return;
+      importantMarkers = normalizeImportantDateMarkers(payload);
+    } catch {
+      importantMarkers = normalizeImportantDateMarkers([]);
+    }
+  }
+
   async function loadData() {
     try {
+      await ensureImportantMarkersLoaded();
+      const historyRequest =
+        historyRangeState.mode === "all"
+          ? { all: true }
+          : historyRangeState.fromInput || historyRangeState.toInput
+            ? {
+                from: historyRangeState.fromInput ? new Date(historyRangeState.fromInput).toISOString() : undefined,
+                to: historyRangeState.toInput ? new Date(historyRangeState.toInput).toISOString() : undefined,
+              }
+            : { days: 30 };
       const [data, historyPayload] = await Promise.all([
         getGlobalStats(),
-        getGlobalHistory({ days: 30 }).catch(() => ({ history: [] })),
+        getGlobalHistory(historyRequest).catch(() => ({ history: [] })),
       ]);
       if (isDisposed) return;
 
@@ -276,6 +355,20 @@ export async function mountOverallStatsPage({ container }) {
       const coreCounts = sortedCountEntries(data.core_count);
       const allTimePeak = data.all_time_peak || {};
       const history = normalizeGlobalHistory(historyPayload);
+      const historyTimestamps = history.map((point) => point._timestamp).filter((value) => value !== null);
+      const historyMin = historyTimestamps.length > 0 ? historyTimestamps[0] : null;
+      const historyMax = historyTimestamps.length > 0 ? historyTimestamps[historyTimestamps.length - 1] : null;
+
+      if (
+        historyRangeState.mode !== "all" &&
+        !historyRangeState.fromInput &&
+        !historyRangeState.toInput &&
+        historyMin !== null &&
+        historyMax !== null
+      ) {
+        historyRangeState.fromInput = formatDateTimeLocalInputValue(historyMin);
+        historyRangeState.toInput = formatDateTimeLocalInputValue(historyMax);
+      }
 
       content.innerHTML = `
         <div class="space-y-8">
@@ -309,12 +402,14 @@ export async function mountOverallStatsPage({ container }) {
 
       clearCharts();
 
-      const historyCanvas = renderLineChartOrEmpty(
-        content.querySelector("#overall-history"),
-        "Global Servers and Players History (Hourly)",
-        "overall-history-canvas",
-        history.length > 0,
-      );
+      const timeHistoryCanvas = renderTimeChartCard(content.querySelector("#overall-history"), {
+        title: "Global Servers and Players History (Hourly)",
+        canvasId: "overall-history-canvas",
+        hasFilteredData: history.length > 0,
+        fromValue: historyRangeState.fromInput,
+        toValue: historyRangeState.toInput,
+        showMarkers: historyMarkerState.showMarkers,
+      });
       const countriesCanvas = renderChartOrEmpty(
         content.querySelector("#overall-countries"),
         "Country Distribution",
@@ -340,41 +435,29 @@ export async function mountOverallStatsPage({ container }) {
         coreCounts.length > 0,
       );
 
-      if (historyCanvas) {
+      if (timeHistoryCanvas) {
         chartInstances.push(
-          createChart(historyCanvas, {
-            type: "line",
-            data: {
-              labels: history.map((point) => formatHistoryLabel(point)),
-              datasets: [
-                {
-                  label: "Servers",
-                  data: history.map((point) => point.servers),
-                  borderColor: "#ff2d2d",
-                  backgroundColor: "rgba(255, 45, 45, 0.2)",
-                  fill: true,
-                  tension: 0.35,
-                },
-                {
-                  label: "Players",
-                  data: history.map((point) => point.players),
-                  borderColor: "#79ea00",
-                  backgroundColor: "rgba(132, 255, 0, 0.2)",
-                  fill: true,
-                  tension: 0.35,
-                },
-              ],
-            },
-            options: {
-              scales: {
-                x: {
-                  ticks: {
-                    autoSkip: true,
-                    maxTicksLimit: 10,
-                  },
-                },
+          createTimeSeriesChart(timeHistoryCanvas, {
+            datasets: [
+              {
+                label: "Servers",
+                data: history
+                  .filter((point) => point._timestamp !== null)
+                  .map((point) => ({ x: point._timestamp, y: point.servers })),
+                borderColor: "#ff2d2d",
+                backgroundColor: "rgba(255, 45, 45, 0.2)",
               },
-            },
+              {
+                label: "Players",
+                data: history
+                  .filter((point) => point._timestamp !== null)
+                  .map((point) => ({ x: point._timestamp, y: point.players })),
+                borderColor: "#79ea00",
+                backgroundColor: "rgba(132, 255, 0, 0.2)",
+              },
+            ],
+            markers: importantMarkers,
+            showMarkers: historyMarkerState.showMarkers,
           }),
         );
       }
@@ -463,6 +546,69 @@ export async function mountOverallStatsPage({ container }) {
           }),
         );
       }
+
+      const overallHistoryFrom = content.querySelector("#overall-history-from");
+      const overallHistoryTo = content.querySelector("#overall-history-to");
+      const overallHistoryApply = content.querySelector("#overall-history-apply");
+      const overallHistoryPresetButtons = Array.from(content.querySelectorAll("button[data-history-range]"));
+      const overallHistoryResetZoom = content.querySelector("button[data-history-reset-zoom]");
+      const overallHistoryToggleMarkers = content.querySelector("button[data-history-toggle-markers]");
+      const currentHistoryChart = chartInstances[0] || null;
+
+      overallHistoryToggleMarkers?.addEventListener("click", async () => {
+        historyMarkerState.showMarkers = !historyMarkerState.showMarkers;
+        await loadData();
+      });
+
+      overallHistoryApply?.addEventListener("click", async () => {
+        const nextFrom = overallHistoryFrom?.value || "";
+        const nextTo = overallHistoryTo?.value || "";
+        const parsedFrom = parseDateTimeLocalInputValue(nextFrom);
+        const parsedTo = parseDateTimeLocalInputValue(nextTo);
+
+        if (parsedFrom !== null && parsedTo !== null && parsedFrom > parsedTo) {
+          window.alert("The start time must be before the end time.");
+          return;
+        }
+
+        historyRangeState = {
+          mode: nextFrom || nextTo ? "range" : "recent",
+          fromInput: nextFrom,
+          toInput: nextTo,
+        };
+        await loadData();
+      });
+
+      overallHistoryPresetButtons.forEach((button) => {
+        button.addEventListener("click", async () => {
+          const preset = button.getAttribute("data-history-range");
+          if (!preset) return;
+
+          if (preset === "all") {
+            historyRangeState = {
+              mode: "all",
+              fromInput: "",
+              toInput: "",
+            };
+            await loadData();
+            return;
+          }
+
+          const hours = preset === "24h" ? 24 : preset === "7d" ? 24 * 7 : 24 * 30;
+          const end = Date.now();
+          const start = end - hours * 60 * 60 * 1000;
+          historyRangeState = {
+            mode: "range",
+            fromInput: formatDateTimeLocalInputValue(start),
+            toInput: formatDateTimeLocalInputValue(end),
+          };
+          await loadData();
+        });
+      });
+
+      overallHistoryResetZoom?.addEventListener("click", () => {
+        currentHistoryChart?.resetZoom?.();
+      });
     } catch (error) {
       if (isDisposed) return;
       clearCharts();

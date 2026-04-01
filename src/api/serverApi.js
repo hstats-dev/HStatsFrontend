@@ -39,3 +39,25 @@ export function getGlobalHistory(options = {}, signal) {
 export function getRecentActivity(signal) {
   return apiRequest("/recent-activity", { signal });
 }
+
+export function getImportantDateMarkers(options = {}, signal) {
+  let requestOptions = options;
+  let requestSignal = signal;
+
+  if (options && typeof options === "object" && "signal" in options && signal === undefined) {
+    requestSignal = options.signal;
+    requestOptions = { ...options };
+    delete requestOptions.signal;
+  }
+
+  const params = new URLSearchParams();
+  if (requestOptions?.limit !== undefined) {
+    const limit = Number(requestOptions.limit);
+    if (Number.isFinite(limit) && limit > 0) {
+      params.set("limit", String(Math.min(1000, Math.floor(limit))));
+    }
+  }
+
+  const query = params.toString();
+  return apiRequest(query ? `/important-dates?${query}` : "/important-dates", { signal: requestSignal });
+}

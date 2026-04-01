@@ -15,31 +15,31 @@ const EXAMPLE_MOD_TREND = [
 
 function renderExampleTrendCard() {
   return `
-    <div class="rounded-2xl border border-slate-800 bg-slate-950 p-3 shadow-inner">
-      <div class="rounded-xl border border-slate-700 bg-slate-900/90 p-3">
+    <div class="chart-card-shell">
+      <div class="chart-card-panel">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-sky-300">Example Mod Trend</p>
-            <p class="mt-1 text-base font-bold text-white">Sample 24-hour usage curve</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-700">Example Mod Trend</p>
+            <p class="mt-1 text-base font-bold text-slate-900">Sample 24-hour usage curve</p>
           </div>
         </div>
 
         <div class="mt-3 grid gap-2 sm:grid-cols-3">
-          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-            <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Servers</p>
-            <p class="mt-1 text-lg font-extrabold text-white">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.servers)))}</p>
+          <div class="chart-card-metric">
+            <p class="chart-card-metric-label">Peak Servers</p>
+            <p class="chart-card-metric-value">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.servers)))}</p>
           </div>
-          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-            <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Players</p>
-            <p class="mt-1 text-lg font-extrabold text-white">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.players)))}</p>
+          <div class="chart-card-metric">
+            <p class="chart-card-metric-label">Peak Players</p>
+            <p class="chart-card-metric-value">${formatNumber(Math.max(...EXAMPLE_MOD_TREND.map((point) => point.players)))}</p>
           </div>
-          <div class="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-            <p class="text-[11px] uppercase tracking-wide text-slate-500">Update Window</p>
-            <p class="mt-1 text-lg font-extrabold text-white">24h</p>
+          <div class="chart-card-metric">
+            <p class="chart-card-metric-label">Update Window</p>
+            <p class="chart-card-metric-value">24h</p>
           </div>
         </div>
 
-        <div class="mt-3 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 px-3 py-3">
+        <div class="chart-plot-surface mt-3">
           <div class="h-52">
             <canvas id="home-example-trend-canvas" aria-label="Example mod servers and players trend chart"></canvas>
           </div>
@@ -289,7 +289,6 @@ export async function mountHomePage({ container }) {
     },
   };
 }
-
 
 
 
