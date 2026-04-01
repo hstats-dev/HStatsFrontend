@@ -766,7 +766,7 @@ export function renderPluginAnalytics(
         </div>
       </section>
       <section class="grid gap-4 lg:grid-cols-2">
-        <div id="plugin-history-holder"></div>
+        <div id="plugin-history-holder" class="lg:col-span-2"></div>
         <div id="plugin-countries-holder"></div>
         <div id="plugin-java-holder"></div>
         <div id="plugin-os-holder"></div>
