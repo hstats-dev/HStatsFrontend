@@ -449,9 +449,13 @@ export function renderPluginAnalytics(
     historyRangeState && typeof historyRangeState === "object"
       ? historyRangeState
       : {
+          mode: "all",
           fromInput: "",
           toInput: "",
         };
+  if (!effectiveHistoryRangeState.mode) {
+    effectiveHistoryRangeState.mode = "all";
+  }
   const effectiveMarkerState =
     markerState && typeof markerState === "object"
       ? markerState
@@ -1093,11 +1097,12 @@ export function renderPluginAnalytics(
       historyChart.destroy();
     }
     historyChart = createTimeSeriesChart(historyCanvas, {
-        min: parsedHistoryFrom ?? undefined,
-        max: parsedHistoryTo ?? undefined,
+        min: effectiveHistoryRangeState.mode === "all" ? undefined : parsedHistoryFrom ?? undefined,
+        max: effectiveHistoryRangeState.mode === "all" ? undefined : parsedHistoryTo ?? undefined,
         maxTicksLimit: 9,
         markers: importantMarkers,
         showMarkers: effectiveMarkerState.showMarkers,
+        includeAllMarkers: effectiveHistoryRangeState.mode === "all",
         datasets: [
           {
             label: "Servers",
@@ -1123,7 +1128,7 @@ export function renderPluginAnalytics(
     renderPluginHistoryChart();
   }
 
-  const applyPluginHistoryRange = () => {
+  const applyPluginHistoryRange = (nextMode = null) => {
     if (!historyCanvas) return;
     const nextFrom = pluginHistoryFrom?.value || "";
     const nextTo = pluginHistoryTo?.value || "";
@@ -1137,6 +1142,7 @@ export function renderPluginAnalytics(
 
     effectiveHistoryRangeState.fromInput = nextFrom;
     effectiveHistoryRangeState.toInput = nextTo;
+    effectiveHistoryRangeState.mode = nextMode || (nextFrom || nextTo ? "range" : "all");
     parsedHistoryFrom = nextFromTimestamp;
     parsedHistoryTo = nextToTimestamp;
     renderPluginHistoryChart();
@@ -1151,7 +1157,7 @@ export function renderPluginAnalytics(
       if (preset === "all" || historyMin === null) {
         if (pluginHistoryFrom) pluginHistoryFrom.value = historyMin !== null ? formatDateTimeLocalInputValue(historyMin) : "";
         if (pluginHistoryTo) pluginHistoryTo.value = historyMax !== null ? formatDateTimeLocalInputValue(historyMax) : "";
-        applyPluginHistoryRange();
+        applyPluginHistoryRange("all");
         return;
       }
 
@@ -1159,7 +1165,7 @@ export function renderPluginAnalytics(
       const start = Math.max(historyMin ?? historyMax, historyMax - hours * 60 * 60 * 1000);
       if (pluginHistoryFrom) pluginHistoryFrom.value = formatDateTimeLocalInputValue(start);
       if (pluginHistoryTo) pluginHistoryTo.value = formatDateTimeLocalInputValue(historyMax);
-      applyPluginHistoryRange();
+      applyPluginHistoryRange("range");
     });
   });
   bindListener(pluginHistoryResetZoom, "click", () => {

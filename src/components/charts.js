@@ -144,6 +144,50 @@ function buildMarkerAnnotations(markers, isDarkTheme) {
   );
 }
 
+function getFiniteTimestamp(value) {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function getDatasetTimestampBounds(datasets) {
+  let min = null;
+  let max = null;
+
+  datasets.forEach((dataset) => {
+    const points = Array.isArray(dataset?.data) ? dataset.data : [];
+    points.forEach((point) => {
+      const timestamp = getFiniteTimestamp(point?.x);
+      if (timestamp === null) return;
+
+      min = min === null ? timestamp : Math.min(min, timestamp);
+      max = max === null ? timestamp : Math.max(max, timestamp);
+    });
+  });
+
+  return { min, max };
+}
+
+function filterMarkersToVisibleRange(markers, { min, max, datasets, includeAllMarkers }) {
+  if (!Array.isArray(markers) || markers.length === 0) return [];
+
+  if (includeAllMarkers) {
+    return markers.filter((marker) => getFiniteTimestamp(marker?.timestamp) !== null);
+  }
+
+  const datasetBounds = getDatasetTimestampBounds(datasets);
+  const explicitMin = getFiniteTimestamp(min);
+  const explicitMax = getFiniteTimestamp(max);
+  const visibleMin = explicitMin ?? datasetBounds.min;
+  const visibleMax = explicitMax ?? datasetBounds.max;
+
+  if (visibleMin === null || visibleMax === null) return [];
+
+  return markers.filter((marker) => {
+    const timestamp = getFiniteTimestamp(marker?.timestamp);
+    return timestamp !== null && timestamp >= visibleMin && timestamp <= visibleMax;
+  });
+}
+
 export function createChart(canvas, config) {
   const isDarkTheme = getActiveTheme() === "dark";
   const defaultLegendLabelColor = isDarkTheme ? "#cbd5e1" : "#475569";
@@ -193,6 +237,7 @@ export function createTimeSeriesChart(
     yPrecision = 0,
     markers = [],
     showMarkers = true,
+    includeAllMarkers = false,
   },
 ) {
   const isDarkTheme = getActiveTheme() === "dark";
@@ -201,7 +246,10 @@ export function createTimeSeriesChart(
   const tooltipBackground = isDarkTheme ? "rgba(2, 6, 23, 0.96)" : "rgba(15, 23, 42, 0.96)";
   const tooltipTitle = "#f8fafc";
   const tooltipBody = isDarkTheme ? "#e2e8f0" : "#e2e8f0";
-  const annotationConfig = showMarkers ? buildMarkerAnnotations(markers, isDarkTheme) : {};
+  const visibleMarkers = showMarkers
+    ? filterMarkersToVisibleRange(markers, { min, max, datasets, includeAllMarkers })
+    : [];
+  const annotationConfig = buildMarkerAnnotations(visibleMarkers, isDarkTheme);
 
   return createChart(canvas, {
     type: "line",

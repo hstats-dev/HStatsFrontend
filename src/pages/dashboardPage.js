@@ -617,7 +617,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
         historyRangeState:
           pluginHistoryRangeStates.get(activePluginUuid) ||
           (() => {
-            const nextState = { fromInput: "", toInput: "" };
+            const nextState = { mode: "all", fromInput: "", toInput: "" };
             pluginHistoryRangeStates.set(activePluginUuid, nextState);
             return nextState;
           })(),

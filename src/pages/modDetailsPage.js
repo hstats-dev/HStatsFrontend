@@ -9,7 +9,7 @@ import { setPageSeo } from "../utils/seo";
 
 export async function mountModDetailsPage({ container, params }) {
   const pluginUuid = params.pluginUuid;
-  const historyRangeState = { fromInput: "", toInput: "" };
+  const historyRangeState = { mode: "all", fromInput: "", toInput: "" };
   const markerState = { showMarkers: true };
   if (!pluginUuid) {
     container.innerHTML = errorState("Missing Mod ID.");

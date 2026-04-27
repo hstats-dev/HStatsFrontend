@@ -369,6 +369,8 @@ export async function mountOverallStatsPage({ container }) {
         historyRangeState.fromInput = formatDateTimeLocalInputValue(historyMin);
         historyRangeState.toInput = formatDateTimeLocalInputValue(historyMax);
       }
+      const parsedHistoryFrom = parseDateTimeLocalInputValue(historyRangeState.fromInput);
+      const parsedHistoryTo = parseDateTimeLocalInputValue(historyRangeState.toInput);
 
       content.innerHTML = `
         <div class="space-y-8">
@@ -438,6 +440,8 @@ export async function mountOverallStatsPage({ container }) {
       if (timeHistoryCanvas) {
         chartInstances.push(
           createTimeSeriesChart(timeHistoryCanvas, {
+            min: historyRangeState.mode === "all" ? undefined : parsedHistoryFrom ?? undefined,
+            max: historyRangeState.mode === "all" ? undefined : parsedHistoryTo ?? undefined,
             datasets: [
               {
                 label: "Servers",
@@ -458,6 +462,7 @@ export async function mountOverallStatsPage({ container }) {
             ],
             markers: importantMarkers,
             showMarkers: historyMarkerState.showMarkers,
+            includeAllMarkers: historyRangeState.mode === "all",
           }),
         );
       }
