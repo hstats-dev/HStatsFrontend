@@ -1,4 +1,3 @@
-import { API_ROOT } from "../config";
 import { applyPluginLinks, refreshPrivatePluginUuid } from "../api/pluginApi";
 import {
   createChart,
@@ -13,13 +12,7 @@ import { emptyState } from "./emptyState";
 import { renderDeveloperButtons } from "./developerLinks";
 import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
-
-const DEFAULT_EMBED_OPTIONS = {
-  theme: "light",
-  layout: "compact",
-  size: "md",
-  dark: false,
-};
+import { bindEmbedCardControls, DEFAULT_EMBED_OPTIONS, renderEmbedCardControls } from "./embedCardControls";
 const VERSION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const EASTERN_TIME_ZONE = "America/New_York";
 const HAS_EXPLICIT_TIMEZONE = /(Z|[+-]\d{2}:\d{2})$/i;
@@ -337,96 +330,6 @@ function renderTimeChartCard(holderElement, { title, canvasId, hasSourceData, fr
   return holderElement.querySelector("canvas");
 }
 
-function buildEmbedCardUrl(pluginUuid, options, { cacheBust = false } = {}) {
-  const safeUuid = encodeURIComponent(pluginUuid || "");
-  const params = new URLSearchParams();
-
-  params.set("theme", options.theme);
-  params.set("layout", options.layout);
-  params.set("size", options.size);
-  params.set("dark", String(options.dark));
-
-  if (cacheBust) {
-    params.set("t", String(Date.now()));
-  }
-
-  return `${API_ROOT}/embed/${safeUuid}/card.svg?${params.toString()}`;
-}
-
-function renderEmbedCardControls(pluginUuid, pluginName) {
-  const initialUrl = buildEmbedCardUrl(pluginUuid, DEFAULT_EMBED_OPTIONS);
-  const initialPreviewUrl = buildEmbedCardUrl(pluginUuid, DEFAULT_EMBED_OPTIONS, { cacheBust: true });
-
-  return `
-    <section class="surface">
-      <div class="surface-body space-y-4">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p class="text-sm font-semibold text-slate-900">Embed Card</p>
-            <p class="mt-1 text-sm text-slate-600">Configure and preview a shareable SVG card for this mod. Use the link to display on the description of your mod pages.</p>
-          </div>
-        </div>
-
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <label class="grid gap-1 text-xs font-semibold text-slate-600">
-            Theme
-            <select id="embed-theme" class="input-base py-2">
-              <option value="light" selected>Light</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          <label class="grid gap-1 text-xs font-semibold text-slate-600">
-            Layout
-            <select id="embed-layout" class="input-base py-2">
-              <option value="compact" selected>Compact</option>
-              <option value="stacked">Stacked</option>
-              <option value="history">History</option>
-            </select>
-          </label>
-          <label class="grid gap-1 text-xs font-semibold text-slate-600">
-            Size
-            <select id="embed-size" class="input-base py-2">
-              <option value="sm">Small</option>
-              <option value="md" selected>Medium</option>
-              <option value="lg">Large</option>
-            </select>
-          </label>
-        </div>
-
-        <label class="inline-flex items-center gap-2 rounded-lg border border-sky-100 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
-          <input id="embed-dark-alias" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
-          Force dark (alias)
-        </label>
-
-        <div class="space-y-3">
-          <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
-            <p class="mt-1 text-[11px] text-slate-500">Size changes are applied in the URL, but preview is scaled to fit this panel.</p>
-            <div class="mt-2 overflow-hidden rounded-lg border border-sky-100 bg-white p-3">
-              <img
-                id="embed-preview-image"
-                src="${escapeHtml(initialPreviewUrl)}"
-                alt="Embed preview for ${escapeHtml(pluginName)}"
-                loading="lazy"
-                class="h-auto w-full rounded"
-              />
-            </div>
-          </div>
-
-          <div class="space-y-1">
-            <label for="embed-url-output" class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Embed URL</label>
-            <div class="flex flex-col gap-2 sm:flex-row">
-              <input id="embed-url-output" type="text" readonly class="input-base w-full py-1.5 font-mono text-[10px]" value="${escapeHtml(initialUrl)}" />
-              <button id="embed-copy-url" type="button" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy URL</button>
-            </div>
-            <p id="embed-copy-status" class="text-[11px] text-slate-500"></p>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
-}
-
 export function renderPluginAnalytics(
   container,
   {
@@ -442,6 +345,8 @@ export function renderPluginAnalytics(
     markerState = null,
     importantMarkers = [],
     onNotify = null,
+    includeEmbedCard = true,
+    embedOptionsState = null,
   },
 ) {
   const history = normalizePluginHistory(Array.isArray(pluginInfo.history) ? pluginInfo.history : []);
@@ -777,14 +682,26 @@ export function renderPluginAnalytics(
         <div id="plugin-cores-holder"></div>
       </section>
 
-      ${renderEmbedCardControls(pluginUuid, pluginName)}
+      ${
+        includeEmbedCard
+          ? renderEmbedCardControls({
+              idPrefix: "embed",
+              kind: "plugin",
+              uuid: pluginUuid,
+              displayName: pluginName,
+              eyebrow: "Embed Card",
+              title: "Embed Card",
+              description: "Configure and preview a shareable SVG card for this mod. Use the link to display on the description of your mod pages.",
+              options: embedOptionsState || DEFAULT_EMBED_OPTIONS,
+            })
+          : ""
+      }
     </div>
   `;
 
   const chartInstances = [];
   let historyChart = null;
   const listenersCleanup = [];
-  let copyStatusTimeout = null;
   let versionSortMode = "count";
   let coPluginsExpanded = false;
 
@@ -824,14 +741,6 @@ export function renderPluginAnalytics(
     coreCounts.length > 0,
   );
 
-  const themeSelect = container.querySelector("#embed-theme");
-  const layoutSelect = container.querySelector("#embed-layout");
-  const sizeSelect = container.querySelector("#embed-size");
-  const darkAliasInput = container.querySelector("#embed-dark-alias");
-  const previewImage = container.querySelector("#embed-preview-image");
-  const urlOutput = container.querySelector("#embed-url-output");
-  const copyUrlButton = container.querySelector("#embed-copy-url");
-  const copyStatus = container.querySelector("#embed-copy-status");
   const versionsList = container.querySelector("#plugin-versions-list");
   const versionSortButtons = Array.from(container.querySelectorAll("button[data-version-sort]"));
   const privatePluginKey = container.querySelector("[data-private-plugin-uuid]");
@@ -1042,53 +951,15 @@ export function renderPluginAnalytics(
     });
   }
 
-  if (
-    themeSelect &&
-    layoutSelect &&
-    sizeSelect &&
-    darkAliasInput &&
-    previewImage &&
-    urlOutput &&
-    copyUrlButton &&
-    copyStatus
-  ) {
-    const readEmbedOptions = () => ({
-      theme: themeSelect.value,
-      layout: layoutSelect.value,
-      size: sizeSelect.value,
-      dark: darkAliasInput.checked,
-    });
-
-    const refreshEmbedPreview = () => {
-      const options = readEmbedOptions();
-      const finalUrl = buildEmbedCardUrl(pluginUuid, options);
-
-      urlOutput.value = finalUrl;
-      previewImage.src = buildEmbedCardUrl(pluginUuid, options, { cacheBust: true });
-      copyStatus.textContent = "";
-    };
-
-    const onCopyUrlClick = async () => {
-      try {
-        await navigator.clipboard.writeText(urlOutput.value);
-        copyStatus.textContent = "Embed URL copied.";
-      } catch {
-        copyStatus.textContent = "Copy failed. You can copy the URL field manually.";
-      }
-
-      if (copyStatusTimeout) {
-        window.clearTimeout(copyStatusTimeout);
-      }
-      copyStatusTimeout = window.setTimeout(() => {
-        copyStatus.textContent = "";
-      }, 2600);
-    };
-
-    bindListener(themeSelect, "change", refreshEmbedPreview);
-    bindListener(layoutSelect, "change", refreshEmbedPreview);
-    bindListener(sizeSelect, "change", refreshEmbedPreview);
-    bindListener(darkAliasInput, "change", refreshEmbedPreview);
-    bindListener(copyUrlButton, "click", onCopyUrlClick);
+  if (includeEmbedCard) {
+    listenersCleanup.push(
+      bindEmbedCardControls(container, {
+        idPrefix: "embed",
+        kind: "plugin",
+        uuid: pluginUuid,
+        state: embedOptionsState,
+      }),
+    );
   }
 
   const renderPluginHistoryChart = () => {
@@ -1270,9 +1141,6 @@ export function renderPluginAnalytics(
     historyChart?.destroy();
     chartInstances.forEach((chart) => chart.destroy());
     listenersCleanup.forEach((cleanup) => cleanup());
-    if (copyStatusTimeout) {
-      window.clearTimeout(copyStatusTimeout);
-    }
   };
 }
 
