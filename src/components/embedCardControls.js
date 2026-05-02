@@ -75,6 +75,21 @@ const COLOR_OPTIONS = [
   ["playersColor", "Players Color", "#22c55e"],
 ];
 
+const COMMON_COLOR_OPTIONS = new Set([
+  "bg",
+  "backgroundColor",
+  "text",
+  "muted",
+  "border",
+  "serversColor",
+  "playersColor",
+]);
+const LAYOUT_COLOR_OPTIONS = {
+  compact: new Set(["divider"]),
+  stacked: new Set(["panel", "panelBorder"]),
+  history: new Set(["panelBorder", "chartBg", "chartGrid", "chartAxis"]),
+};
+
 function optionValue(options, key) {
   return options?.[key] ?? DEFAULT_EMBED_OPTIONS[key];
 }
@@ -122,6 +137,10 @@ function normalizeHexColor(value) {
   return `#${hex.toLowerCase()}`;
 }
 
+function isColorOptionVisibleForLayout(key, layout) {
+  return COMMON_COLOR_OPTIONS.has(key) || Boolean(LAYOUT_COLOR_OPTIONS[layout]?.has(key));
+}
+
 export function normalizeEmbedOptions(options = {}) {
   const normalized = {
     theme: normalizeChoice(String(options.theme || ""), THEME_OPTIONS.map(([value]) => value), DEFAULT_EMBED_OPTIONS.theme),
@@ -162,7 +181,7 @@ export function buildEmbedCardUrl(kind, uuid, options = DEFAULT_EMBED_OPTIONS, {
   });
 
   COLOR_OPTIONS.forEach(([key]) => {
-    if (normalized[key]) {
+    if (normalized[key] && isColorOptionVisibleForLayout(key, normalized.layout)) {
       params.set(key, normalized[key]);
     }
   });
@@ -182,12 +201,14 @@ function renderOptions(options, values, key) {
 }
 
 function renderColorInputs(options, idPrefix) {
+  const layout = normalizeEmbedOptions(options).layout;
   return COLOR_OPTIONS.map(([key, label, placeholder]) => {
     const id = `${idPrefix}-${key}`;
     const pickerId = `${id}-picker`;
     const pickerValue = normalizeHexColor(optionValue(options, key)) || "#000000";
+    const visibilityClass = isColorOptionVisibleForLayout(key, layout) ? "" : " hidden";
     return `
-      <label class="grid gap-1 text-xs font-semibold text-slate-600">
+      <label class="grid gap-1 text-xs font-semibold text-slate-600${visibilityClass}" data-embed-color-control="${escapeHtml(key)}">
         ${escapeHtml(label)}
         <span class="grid grid-cols-[44px_minmax(0,1fr)] gap-2">
           <input
@@ -346,6 +367,7 @@ export function bindEmbedCardControls(root, {
   };
   const colorInputs = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-option]`));
   const colorPickers = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-picker]`));
+  const colorControls = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-control]`));
   const cleanup = [];
   let copyStatusTimeout = null;
   let previewRefreshTimeout = null;
@@ -393,6 +415,14 @@ export function bindEmbedCardControls(root, {
     cleanup.push(() => element.removeEventListener(eventName, handler));
   };
 
+  const updateColorControlVisibility = () => {
+    const layout = elements.layout?.value || DEFAULT_EMBED_OPTIONS.layout;
+    colorControls.forEach((control) => {
+      const key = control.getAttribute("data-embed-color-control");
+      control.classList.toggle("hidden", !isColorOptionVisibleForLayout(key, layout));
+    });
+  };
+
   const refreshSoon = () => {
     if (previewRefreshTimeout) {
       window.clearTimeout(previewRefreshTimeout);
@@ -413,7 +443,10 @@ export function bindEmbedCardControls(root, {
     elements.radius,
     elements.borderWidth,
     elements.dark,
-  ].forEach((element) => bind(element, "change", () => refresh({ updatePreview: true })));
+  ].forEach((element) => bind(element, "change", () => {
+    updateColorControlVisibility();
+    refresh({ updatePreview: true });
+  }));
   colorInputs.forEach((input) => bind(input, "input", refreshSoon));
   colorInputs.forEach((input) => bind(input, "input", () => {
     const key = input.getAttribute("data-embed-color-option");
@@ -450,6 +483,7 @@ export function bindEmbedCardControls(root, {
     }, 2600);
   });
 
+  updateColorControlVisibility();
   refresh({ updatePreview: false });
 
   return () => {
