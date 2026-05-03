@@ -258,7 +258,7 @@ export function renderEmbedCardControls({
           <p class="muted mt-1 max-w-2xl">${escapeHtml(description)}</p>
         </div>
 
-        <div class="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_400px]">
+        <div class="grid gap-4">
           <div class="rounded-xl border border-sky-100 bg-slate-50 p-4">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Preview</p>
@@ -276,7 +276,7 @@ export function renderEmbedCardControls({
           </div>
 
           <div class="space-y-4 rounded-xl border border-sky-100 bg-slate-50 p-4">
-            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <label class="grid gap-1 text-xs font-semibold text-slate-600">
                 Theme
                 <select id="${escapeHtml(idPrefix)}-theme" class="input-base py-2">
@@ -324,7 +324,7 @@ export function renderEmbedCardControls({
             <details class="rounded-lg border border-sky-100 bg-white p-3" open>
               <summary class="cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500">Color Overrides</summary>
               <p class="mt-2 text-[11px] text-slate-500">Use 3 or 6 digit hex values with or without #. Transparent is supported for card, panel, and chart backgrounds.</p>
-              <div class="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+              <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 ${renderColorInputs(normalized, idPrefix)}
               </div>
             </details>
