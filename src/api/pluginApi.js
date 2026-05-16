@@ -31,6 +31,16 @@ export function applyPluginLinks(pluginUuid, githubLink, curseforgeLink) {
   });
 }
 
+export function applyPluginVisibility(pluginUuid, isUnlisted) {
+  return apiRequest("/plugin/apply-plugin-visibility", {
+    method: "POST",
+    body: {
+      plugin_uuid: pluginUuid,
+      is_unlisted: isUnlisted,
+    },
+  });
+}
+
 export function refreshPrivatePluginUuid(pluginUuid) {
   return apiRequest("/plugin/refresh-private-plugin-uuid", {
     method: "POST",

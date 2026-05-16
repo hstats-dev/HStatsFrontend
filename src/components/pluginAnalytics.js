@@ -1,4 +1,4 @@
-import { applyPluginLinks, refreshPrivatePluginUuid } from "../api/pluginApi";
+import { applyPluginLinks, applyPluginVisibility, refreshPrivatePluginUuid } from "../api/pluginApi";
 import {
   createChart,
   createTimeSeriesChart,
@@ -339,7 +339,9 @@ export function renderPluginAnalytics(
     developerInfo,
     showUuid = true,
     editablePluginLinks = false,
+    editablePluginVisibility = false,
     onPluginLinksSaved = null,
+    onPluginVisibilitySaved = null,
     onPrivatePluginUuidRefreshed = null,
     historyRangeState = null,
     markerState = null,
@@ -390,6 +392,8 @@ export function renderPluginAnalytics(
   const developerId = resolveDeveloperId(developerInfo);
   const allTimePeak = pluginInfo.all_time_peak || {};
   const pluginName = pluginInfo.name || "Unknown";
+  const isUnlisted = pluginInfo.is_unlisted === true;
+  let currentIsUnlisted = isUnlisted;
   const pluginLinks = pluginInfo.links && typeof pluginInfo.links === "object"
     ? pluginInfo.links
     : {
@@ -400,6 +404,46 @@ export function renderPluginAnalytics(
     ...(developerInfo || {}),
     links: pluginLinks,
   };
+  const visibilityControlMarkup = editablePluginVisibility
+    ? `
+        <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Visibility</p>
+              <p class="mt-1 text-xs text-slate-600">Unlisted mods are hidden from public discovery and remain available by direct link.</p>
+            </div>
+            <span
+              id="plugin-visibility-badge"
+              class="${
+                isUnlisted
+                  ? "rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800"
+                  : "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800"
+              }"
+            >
+              ${isUnlisted ? "Unlisted" : "Listed"}
+            </span>
+          </div>
+          <div id="plugin-visibility-control" class="mt-3 flex flex-wrap items-center justify-between gap-3">
+            <label class="inline-flex min-w-0 items-center gap-3 text-sm font-semibold text-slate-700">
+              <input
+                id="plugin-visibility-unlisted"
+                type="checkbox"
+                class="peer sr-only"
+                ${isUnlisted ? "checked" : ""}
+              />
+              <span
+                class="relative h-6 w-11 shrink-0 rounded-full border border-slate-300 bg-slate-200 transition peer-checked:border-amber-400 peer-checked:bg-amber-500 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-200 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:shadow-sm after:transition peer-checked:after:translate-x-5"
+                aria-hidden="true"
+              ></span>
+              <span class="min-w-0">
+                Hide this mod from public lists
+              </span>
+            </label>
+            <p id="plugin-visibility-status" class="basis-full text-xs font-semibold text-slate-500"></p>
+          </div>
+        </div>
+      `
+    : "";
   const dashboardSettingsMarkup = `
     <section class="surface">
       <div class="surface-body space-y-4">
@@ -455,6 +499,7 @@ export function renderPluginAnalytics(
               : ""
           }
         </div>
+        ${visibilityControlMarkup}
         <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
           <div class="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -560,6 +605,17 @@ export function renderPluginAnalytics(
         editablePluginLinks
           ? `${dashboardSettingsMarkup}${dashboardStatsMarkup}`
           : `
+            ${
+              editablePluginVisibility
+                ? `
+                  <section class="surface">
+                    <div class="surface-body space-y-4">
+                      ${visibilityControlMarkup}
+                    </div>
+                  </section>
+                `
+                : ""
+            }
             <section class="grid items-start gap-4 lg:grid-cols-2">
               <article class="surface">
                 <div class="surface-body">
@@ -750,6 +806,10 @@ export function renderPluginAnalytics(
   const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
   const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
   const pluginLinksSubmit = container.querySelector("#plugin-links-submit");
+  const pluginVisibilityControl = container.querySelector("#plugin-visibility-control");
+  const pluginVisibilityInput = container.querySelector("#plugin-visibility-unlisted");
+  const pluginVisibilityBadge = container.querySelector("#plugin-visibility-badge");
+  const pluginVisibilityStatus = container.querySelector("#plugin-visibility-status");
   const pluginHistoryFrom = container.querySelector("#plugin-history-from");
   const pluginHistoryTo = container.querySelector("#plugin-history-to");
   const pluginHistoryApply = container.querySelector("#plugin-history-apply");
@@ -947,6 +1007,55 @@ export function renderPluginAnalytics(
       } finally {
         pluginLinksSubmit.disabled = false;
         pluginLinksSubmit.textContent = "Save";
+      }
+    });
+  }
+
+  if (pluginVisibilityControl && pluginVisibilityInput && editablePluginVisibility) {
+    bindListener(pluginVisibilityInput, "change", async () => {
+      const nextIsUnlisted = pluginVisibilityInput.checked;
+
+      pluginVisibilityInput.disabled = true;
+      if (pluginVisibilityStatus) {
+        pluginVisibilityStatus.textContent = "Saving visibility...";
+        pluginVisibilityStatus.className = "basis-full text-xs font-semibold text-slate-500";
+      }
+
+      try {
+        const result = await applyPluginVisibility(pluginUuid, nextIsUnlisted);
+        const savedIsUnlisted = result?.is_unlisted === true;
+        currentIsUnlisted = savedIsUnlisted;
+        pluginInfo.is_unlisted = savedIsUnlisted;
+        pluginVisibilityInput.checked = savedIsUnlisted;
+        if (pluginVisibilityBadge) {
+          pluginVisibilityBadge.textContent = savedIsUnlisted ? "Unlisted" : "Listed";
+          pluginVisibilityBadge.className = savedIsUnlisted
+            ? "rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800"
+            : "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800";
+        }
+        if (pluginVisibilityStatus) {
+          pluginVisibilityStatus.textContent = savedIsUnlisted
+            ? "This mod is hidden from public discovery."
+            : "This mod is visible in public discovery.";
+          pluginVisibilityStatus.className = "basis-full text-xs font-semibold text-emerald-700";
+        }
+        if (typeof onNotify === "function") {
+          onNotify(savedIsUnlisted ? "Mod is now unlisted." : "Mod is now listed.", "success", pluginVisibilityControl);
+        }
+        if (typeof onPluginVisibilitySaved === "function") {
+          await onPluginVisibilitySaved(result);
+        }
+      } catch (error) {
+        pluginVisibilityInput.checked = currentIsUnlisted;
+        if (pluginVisibilityStatus) {
+          pluginVisibilityStatus.textContent = error.message || "Failed to save mod visibility.";
+          pluginVisibilityStatus.className = "basis-full text-xs font-semibold text-red-700";
+        }
+        if (typeof onNotify === "function") {
+          onNotify(error.message || "Failed to save mod visibility.", "error", pluginVisibilityControl);
+        }
+      } finally {
+        pluginVisibilityInput.disabled = false;
       }
     });
   }

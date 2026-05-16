@@ -541,6 +541,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           },
         },
         editablePluginLinks: true,
+        editablePluginVisibility: true,
         historyRangeState:
           pluginHistoryRangeStates.get(activePluginUuid) ||
           (() => {
@@ -558,6 +559,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
         importantMarkers,
         includeEmbedCard: false,
         onPluginLinksSaved: async () => {
+          await refreshLiveStats(false);
+        },
+        onPluginVisibilitySaved: async () => {
           await refreshLiveStats(false);
         },
         onPrivatePluginUuidRefreshed: async () => {

@@ -63,6 +63,7 @@ export async function mountModsPage({ container }) {
             github_link: plugin.github_link || "",
             curseforge_link: plugin.curseforge_link || "",
           },
+          isUnlisted: plugin.is_unlisted === true,
           totalServers: value?.servers_using || 0,
           totalPlayers: value?.total_players || 0,
         };
@@ -236,6 +237,7 @@ export async function mountModsPage({ container }) {
             github_link: pluginInfo.github_link || "",
             curseforge_link: pluginInfo.curseforge_link || "",
           },
+          isUnlisted: pluginInfo.is_unlisted === true,
           totalServers: pluginInfo.total_servers || 0,
           totalPlayers: pluginInfo.total_players || 0,
         },

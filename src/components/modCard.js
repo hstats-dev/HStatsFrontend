@@ -2,11 +2,18 @@ import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
 import { renderDeveloperIconLinks } from "./developerLinks";
 
-export function modCard({ uuid, name, developerInfo, links, totalServers, totalPlayers }) {
+export function modCard({ uuid, name, developerInfo, links, totalServers, totalPlayers, isUnlisted = false }) {
   return `
     <article class="surface transition hover:-translate-y-0.5 hover:border-sky-200">
       <div class="p-4 space-y-3">
-        <h3 class="line-clamp-2 text-base font-bold leading-tight text-slate-900">${escapeHtml(name)}</h3>
+        <div class="flex items-start justify-between gap-2">
+          <h3 class="line-clamp-2 min-w-0 text-base font-bold leading-tight text-slate-900">${escapeHtml(name)}</h3>
+          ${
+            isUnlisted
+              ? `<span class="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800">Unlisted</span>`
+              : ""
+          }
+        </div>
         <div class="flex items-end justify-between gap-3">
           <div>
             <p class="text-[11px] uppercase tracking-wide text-slate-500">Developer</p>
