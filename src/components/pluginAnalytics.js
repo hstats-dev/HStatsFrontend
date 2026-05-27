@@ -1,4 +1,4 @@
-import { applyPluginLinks, applyPluginVisibility, refreshPrivatePluginUuid } from "../api/pluginApi";
+import { applyPluginLinks, applyPluginName, applyPluginVisibility, refreshPrivatePluginUuid } from "../api/pluginApi";
 import {
   createChart,
   createTimeSeriesChart,
@@ -248,6 +248,31 @@ function resolvePrivateUuidRefreshError(error) {
   return error?.message || "Failed to refresh the private key.";
 }
 
+function resolvePluginNameError(error) {
+  const errorCode = String(error?.payload?.error_code || "").trim().toLowerCase();
+  const errorField = String(error?.payload?.field || "").trim().toLowerCase();
+
+  if (error?.status === 400 && errorCode === "inappropriate_language" && errorField === "name") {
+    return "That mod name is not allowed. Please choose a different name.";
+  }
+  if (error?.status === 400 && errorCode === "name_too_long" && errorField === "name") {
+    const maxLengthValue = Number(error?.payload?.max_length);
+    const maxLength = Number.isFinite(maxLengthValue) && maxLengthValue > 0 ? Math.floor(maxLengthValue) : 32;
+    return `Mod name must be ${maxLength} characters or fewer.`;
+  }
+  if (error?.status === 400) {
+    return error?.message || "Enter a mod name.";
+  }
+  if (error?.status === 403) {
+    return "You do not have access to rename this mod.";
+  }
+  if (error?.status === 404) {
+    return "This mod could not be found.";
+  }
+
+  return error?.message || "Failed to rename the mod.";
+}
+
 function renderCanvasOrEmpty(holderElement, canvasId, title, hasData) {
   if (!hasData) {
     holderElement.innerHTML = emptyState(title, "No data has been reported yet.");
@@ -338,8 +363,10 @@ export function renderPluginAnalytics(
     pluginInfo,
     developerInfo,
     showUuid = true,
+    editablePluginName = false,
     editablePluginLinks = false,
     editablePluginVisibility = false,
+    onPluginNameSaved = null,
     onPluginLinksSaved = null,
     onPluginVisibilitySaved = null,
     onPrivatePluginUuidRefreshed = null,
@@ -404,6 +431,33 @@ export function renderPluginAnalytics(
     ...(developerInfo || {}),
     links: pluginLinks,
   };
+  const nameControlMarkup = editablePluginName
+    ? `
+        <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Name</p>
+              <p class="mt-1 text-xs text-slate-600">Rename this mod anywhere it appears on HStats.</p>
+            </div>
+            <button id="plugin-name-submit" type="submit" form="plugin-name-form" class="btn-secondary self-start">Save</button>
+          </div>
+          <form id="plugin-name-form" class="mt-3 grid gap-2">
+            <label class="grid gap-1 text-xs font-semibold text-slate-600">
+              Name
+              <input
+                id="plugin-name-input"
+                type="text"
+                class="input-base"
+                maxlength="32"
+                required
+                value="${escapeHtml(pluginName)}"
+              />
+            </label>
+            <p id="plugin-name-status" class="text-xs font-semibold text-slate-500"></p>
+          </form>
+        </div>
+      `
+    : "";
   const visibilityControlMarkup = editablePluginVisibility
     ? `
         <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
@@ -499,6 +553,7 @@ export function renderPluginAnalytics(
               : ""
           }
         </div>
+        ${nameControlMarkup}
         ${visibilityControlMarkup}
         <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
           <div class="flex flex-wrap items-start justify-between gap-3">
@@ -802,6 +857,10 @@ export function renderPluginAnalytics(
   const privatePluginKey = container.querySelector("[data-private-plugin-uuid]");
   const coPluginsList = container.querySelector("#plugin-co-plugins-list");
   const coPluginsToggle = container.querySelector('button[data-action="toggle-co-plugins"]');
+  const pluginNameForm = container.querySelector("#plugin-name-form");
+  const pluginNameInput = container.querySelector("#plugin-name-input");
+  const pluginNameSubmit = container.querySelector("#plugin-name-submit");
+  const pluginNameStatus = container.querySelector("#plugin-name-status");
   const pluginLinksForm = container.querySelector("#plugin-links-form");
   const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
   const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
@@ -974,6 +1033,56 @@ export function renderPluginAnalytics(
     bindListener(coPluginsToggle, "click", () => {
       coPluginsExpanded = !coPluginsExpanded;
       renderCoPlugins();
+    });
+  }
+
+  if (pluginNameForm && pluginNameInput && pluginNameSubmit && editablePluginName) {
+    bindListener(pluginNameForm, "submit", async (event) => {
+      event.preventDefault();
+      const nextName = pluginNameInput.value.trim();
+      if (!nextName) {
+        if (pluginNameStatus) {
+          pluginNameStatus.textContent = "Enter a mod name.";
+          pluginNameStatus.className = "text-xs font-semibold text-red-700";
+        }
+        return;
+      }
+
+      pluginNameSubmit.disabled = true;
+      pluginNameSubmit.textContent = "Saving...";
+      if (pluginNameStatus) {
+        pluginNameStatus.textContent = "Saving name...";
+        pluginNameStatus.className = "text-xs font-semibold text-slate-500";
+      }
+
+      try {
+        const result = await applyPluginName(pluginUuid, nextName);
+        const savedName = String(result?.name || nextName).trim();
+        pluginInfo.name = savedName;
+        pluginNameInput.value = savedName;
+        if (pluginNameStatus) {
+          pluginNameStatus.textContent = "Mod name saved.";
+          pluginNameStatus.className = "text-xs font-semibold text-emerald-700";
+        }
+        if (typeof onNotify === "function") {
+          onNotify("Mod name saved.", "success", pluginNameForm);
+        }
+        if (typeof onPluginNameSaved === "function") {
+          await onPluginNameSaved(result);
+        }
+      } catch (error) {
+        const message = resolvePluginNameError(error);
+        if (pluginNameStatus) {
+          pluginNameStatus.textContent = message;
+          pluginNameStatus.className = "text-xs font-semibold text-red-700";
+        }
+        if (typeof onNotify === "function") {
+          onNotify(message, "error", pluginNameForm);
+        }
+      } finally {
+        pluginNameSubmit.disabled = false;
+        pluginNameSubmit.textContent = "Save";
+      }
     });
   }
 

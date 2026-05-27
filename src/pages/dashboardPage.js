@@ -540,6 +540,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
             curseforge_link: pluginInfo.curseforge_link || "",
           },
         },
+        editablePluginName: true,
         editablePluginLinks: true,
         editablePluginVisibility: true,
         historyRangeState:
@@ -558,6 +559,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
           })(),
         importantMarkers,
         includeEmbedCard: false,
+        onPluginNameSaved: async () => {
+          await refreshLiveStats(false);
+        },
         onPluginLinksSaved: async () => {
           await refreshLiveStats(false);
         },
