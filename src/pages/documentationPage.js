@@ -404,6 +404,21 @@ function renderIntegrationTab() {
         </section>
       </section>
 
+      <section class="surface">
+        <div class="surface-body space-y-3">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Server Owner Notice</p>
+            <h3 class="mt-1 text-lg font-bold text-slate-900">Server Owner Information</h3>
+          </div>
+          <p class="text-sm text-slate-700">
+            When a mod using HStats runs on a server, the HStats class creates a text file in the main server directory. The file explains that anonymous server and usage stats are being reported to HStats, describes what HStats is doing, and offers the server owner the ability to disable reporting for that server.
+          </p>
+          <p class="text-sm text-slate-700">
+            Mod developers are encouraged to disclose on their mod page that HStats is used, so server owners know analytics are included before installing the mod.
+          </p>
+        </div>
+      </section>
+
       <section class="docs-warning-card docs-warning-card-danger surface">
         <div class="surface-body space-y-2">
           <h3 class="docs-warning-title text-lg font-bold">Private Key Reminder</h3>
