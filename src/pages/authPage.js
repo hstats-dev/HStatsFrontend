@@ -1,4 +1,4 @@
-import { getDiscordOAuthStartUrl, loginAccount, registerAccount } from "../api/accountApi";
+import { getDiscordOAuthStartUrl, getHytaleOAuthStartUrl, loginAccount, registerAccount } from "../api/accountApi";
 import { escapeHtml } from "../utils/escapeHtml";
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6Lf8qWksAAAAACTDKKp41MJNO0fR26u_nlEjhp22";
@@ -84,11 +84,15 @@ function getMode(query, params) {
 }
 
 function sanitizeInternalPath(path, fallback = "/dashboard") {
-  if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) return fallback;
+  if (typeof path !== "string"
+    || !path.startsWith("/")
+    || path.startsWith("//")
+    || path.includes("\\")
+    || /[\u0000-\u001f\u007f]/.test(path)) return fallback;
   return path;
 }
 
-function buildDiscordReturnToPath(redirectPath) {
+function buildOAuthReturnToPath(redirectPath) {
   const params = new URLSearchParams();
   params.set("redirect", redirectPath);
   return `/auth?${params.toString()}`;
@@ -104,15 +108,26 @@ function discordLogoIcon(sizeClass = "h-4 w-4") {
     </svg>
   `;
 }
-function resolveDiscordOAuthErrorMessage(errorCode) {
-  if (!errorCode) return "Discord login failed. Please try again.";
+
+function hytaleLogoIcon() {
+  return `<img src="/hytale_logo.png" alt="" aria-hidden="true" class="h-6 w-6 shrink-0 object-contain" />`;
+}
+function resolveOAuthErrorMessage(provider, errorCode) {
+  const providerName = provider === "hytale" ? "Hytale" : "Discord";
+  if (!errorCode) return `${providerName} login failed. Please try again.`;
 
   const normalized = String(errorCode).trim().toLowerCase();
-  if (normalized === "access_denied") return "Discord login was cancelled.";
+  if (normalized === "access_denied") return `${providerName} login was cancelled.`;
   if (normalized === "state_mismatch" || normalized === "invalid_state") return "OAuth verification failed. Please try again.";
   if (normalized === "email_not_verified") return "Your Discord email is not verified. Please verify it and try again.";
+  if (normalized === "invalid_scope") return "Hytale did not grant the required profile scope. Check the scopes approved for this OAuth client.";
+  if (normalized === "invalid_request") return "Hytale rejected the login request. Please try again or contact support.";
+  if (normalized === "account_already_linked") return "That Hytale account is already linked to a different HStats account.";
+  if (normalized === "invalid_profile") return "Hytale did not return a valid selected game profile.";
+  if (normalized === "invalid_subject" || normalized === "invalid_nonce") return "Hytale identity verification failed. Please try again.";
+  if (normalized === "server_misconfigured") return `${providerName} login is not configured correctly on the server.`;
 
-  return `Discord login failed (${escapeHtml(errorCode)}).`;
+  return `${providerName} login failed (${escapeHtml(errorCode)}).`;
 }
 
 export async function mountAuthPage({ container, query, params, account, setAccount, navigate, refreshSession }) {
@@ -125,18 +140,24 @@ export async function mountAuthPage({ container, query, params, account, setAcco
   const oauthStatus = query.get("oauth_status");
   const oauthError = query.get("oauth_error");
 
-  if (oauthStatus && (!oauthProvider || oauthProvider === "discord")) {
+  if (oauthStatus && (!oauthProvider || oauthProvider === "discord" || oauthProvider === "hytale")) {
+    const activeProvider = oauthProvider === "hytale" ? "hytale" : "discord";
+    const providerName = activeProvider === "hytale" ? "Hytale" : "Discord";
     const redirectQuery = encodeURIComponent(redirectPath);
-    const returnToPath = buildDiscordReturnToPath(redirectPath);
+    const returnToPath = buildOAuthReturnToPath(redirectPath);
+    const retryClass = activeProvider === "hytale"
+      ? "inline-flex items-center gap-2 rounded-lg bg-[#4f8f2f] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3d7124]"
+      : "inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]";
+    const retryIcon = activeProvider === "hytale" ? hytaleLogoIcon() : discordLogoIcon();
 
     container.innerHTML = `
       <section class="mx-auto max-w-xl space-y-4">
         <div class="surface">
           <div class="surface-body space-y-3">
-            <h1 class="section-title">Discord Login</h1>
-            <p id="auth-oauth-status" class="text-sm text-slate-700">Processing Discord authentication...</p>
+            <h1 class="section-title">${providerName} Login</h1>
+            <p id="auth-oauth-status" class="text-sm text-slate-700">Processing ${providerName} authentication...</p>
             <div id="auth-oauth-actions" class="hidden flex flex-wrap gap-3">
-              <button id="auth-discord-retry" type="button" class="inline-flex items-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]">${discordLogoIcon()}<span>Try Discord Again</span></button>
+              <button id="auth-oauth-retry" type="button" class="${retryClass}">${retryIcon}<span>Try ${providerName} Again</span></button>
               <a href="/auth?redirect=${redirectQuery}" data-link class="btn-secondary">Use Email/Password</a>
             </div>
           </div>
@@ -146,20 +167,23 @@ export async function mountAuthPage({ container, query, params, account, setAcco
 
     const statusElement = container.querySelector("#auth-oauth-status");
     const actionsElement = container.querySelector("#auth-oauth-actions");
-    const retryButton = container.querySelector("#auth-discord-retry");
+    const retryButton = container.querySelector("#auth-oauth-retry");
 
-    const startDiscordLogin = () => {
-      window.location.assign(getDiscordOAuthStartUrl(returnToPath));
+    const startOAuthLogin = () => {
+      const startUrl = activeProvider === "hytale"
+        ? getHytaleOAuthStartUrl(returnToPath)
+        : getDiscordOAuthStartUrl(returnToPath);
+      window.location.assign(startUrl);
     };
 
-    retryButton?.addEventListener("click", startDiscordLogin);
+    retryButton?.addEventListener("click", startOAuthLogin);
 
     if (oauthStatus === "success") {
-      statusElement.textContent = "Discord login successful. Finalizing session...";
+      statusElement.textContent = `${providerName} login successful. Finalizing session...`;
       try {
         const refreshedAccount = await refreshSession();
         if (isDisposed) {
-          retryButton?.removeEventListener("click", startDiscordLogin);
+          retryButton?.removeEventListener("click", startOAuthLogin);
           return { cleanup: () => {} };
         }
 
@@ -171,15 +195,15 @@ export async function mountAuthPage({ container, query, params, account, setAcco
             navigate(redirectPath, { replace: true });
           }, 250);
         } else {
-          statusElement.innerHTML = `<span class="text-red-700">Discord login completed, but session could not be loaded. Please try again.</span>`;
+          statusElement.innerHTML = `<span class="text-red-700">${providerName} login completed, but the session could not be loaded. Please try again.</span>`;
           actionsElement.classList.remove("hidden");
         }
       } catch (error) {
-        statusElement.innerHTML = `<span class="text-red-700">${escapeHtml(error.message || "Failed to complete Discord login.")}</span>`;
+        statusElement.innerHTML = `<span class="text-red-700">${escapeHtml(error.message || `Failed to complete ${providerName} login.`)}</span>`;
         actionsElement.classList.remove("hidden");
       }
     } else {
-      statusElement.innerHTML = `<span class="text-red-700">${resolveDiscordOAuthErrorMessage(oauthError)}</span>`;
+      statusElement.innerHTML = `<span class="text-red-700">${resolveOAuthErrorMessage(activeProvider, oauthError)}</span>`;
       actionsElement.classList.remove("hidden");
     }
 
@@ -189,7 +213,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
         if (oauthRedirectTimer) {
           window.clearTimeout(oauthRedirectTimer);
         }
-        retryButton?.removeEventListener("click", startDiscordLogin);
+        retryButton?.removeEventListener("click", startOAuthLogin);
       },
     };
   }
@@ -224,7 +248,10 @@ export async function mountAuthPage({ container, query, params, account, setAcco
             <button id="auth-login-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "login" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Login</button>
             <button id="auth-register-tab" class="rounded-md px-4 py-2 text-sm font-semibold ${mode === "register" ? "bg-white text-brand-700 shadow" : "text-slate-700"}">Register</button>
           </div>
-          <button id="auth-discord-button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]" type="button">${discordLogoIcon()}<span>Continue with Discord</span></button>
+          <div class="grid gap-2">
+            <button id="auth-hytale-button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#4f8f2f] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#3d7124]" type="button">${hytaleLogoIcon()}<span>Continue with Hytale</span></button>
+            <button id="auth-discord-button" class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#5865F2] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#4752C4]" type="button">${discordLogoIcon()}<span>Continue with Discord</span></button>
+          </div>
           <p class="text-xs text-slate-500">Or continue with email and password below.</p>
           <form id="auth-form" class="space-y-3">
             <input id="auth-email" class="input-base" type="email" required placeholder="Email address" />
@@ -249,6 +276,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
 
   const loginTab = container.querySelector("#auth-login-tab");
   const registerTab = container.querySelector("#auth-register-tab");
+  const hytaleButton = container.querySelector("#auth-hytale-button");
   const discordButton = container.querySelector("#auth-discord-button");
   const form = container.querySelector("#auth-form");
   const emailInput = container.querySelector("#auth-email");
@@ -306,10 +334,17 @@ export async function mountAuthPage({ container, query, params, account, setAcco
 
   const startDiscordLogin = () => {
     status.textContent = "Redirecting to Discord...";
-    const returnToPath = buildDiscordReturnToPath(redirectPath);
+    const returnToPath = buildOAuthReturnToPath(redirectPath);
     window.location.assign(getDiscordOAuthStartUrl(returnToPath));
   };
 
+  const startHytaleLogin = () => {
+    status.textContent = "Redirecting to Hytale...";
+    const returnToPath = buildOAuthReturnToPath(redirectPath);
+    window.location.assign(getHytaleOAuthStartUrl(returnToPath));
+  };
+
+  hytaleButton.addEventListener("click", startHytaleLogin);
   discordButton.addEventListener("click", startDiscordLogin);
   showPasswordInput.addEventListener("change", updatePasswordVisibility);
 
@@ -376,6 +411,7 @@ export async function mountAuthPage({ container, query, params, account, setAcco
       if (oauthRedirectTimer) {
         window.clearTimeout(oauthRedirectTimer);
       }
+      hytaleButton.removeEventListener("click", startHytaleLogin);
       discordButton.removeEventListener("click", startDiscordLogin);
       showPasswordInput.removeEventListener("change", updatePasswordVisibility);
     },

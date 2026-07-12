@@ -11,7 +11,7 @@ It displays live network statistics, mod analytics, developer profiles, document
 - Shows live HStats network totals for servers, players, countries, developers, and tracked mods.
 - Provides a searchable public mods directory with detailed per-mod analytics.
 - Renders global and per-mod charts for hourly history, versions, countries, operating systems, Java versions, CPU cores, and co-installed mods.
-- Supports developer account login, registration, Discord OAuth, and reCAPTCHA-protected registration.
+- Supports developer account login, registration, Hytale OpenID Connect, Discord OAuth, and reCAPTCHA-protected registration.
 - Provides a private dashboard for creating mods, viewing public Mod IDs, copying private server reporting keys, editing profile links, and managing mod links.
 - Displays public developer profiles with managed mods and aggregate usage share.
 - Documents the HStats class integration and public stats API endpoints.
@@ -104,7 +104,7 @@ Supported Vite environment variables:
 
 Vite environment variables are bundled into client-side code. Do not put secrets in `VITE_*` variables.
 
-The backend must be configured to allow the frontend origin and cookie-based sessions when using login, registration, Discord OAuth, or the dashboard.
+The backend must be configured to allow the frontend origin and cookie-based sessions when using login, registration, Hytale or Discord OAuth, or the dashboard.
 
 ## Routes
 
@@ -197,4 +197,3 @@ Do not publish:
 - API credentials or webhook URLs
 
 Only public browser-safe values should be placed in `VITE_*` variables.
-

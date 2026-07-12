@@ -1,5 +1,5 @@
 import { addPlugin, deletePlugin, getPluginInfo } from "../api/pluginApi";
-import { applyCurseforgeLink, applyGithubLink, applyUsername, logoutAccount } from "../api/accountApi";
+import { applyCurseforgeLink, applyGithubLink, applyUsername, getHytaleOAuthStartUrl, logoutAccount } from "../api/accountApi";
 import { getImportantDateMarkers } from "../api/serverApi";
 import { DASHBOARD_REFRESH_MS } from "../config";
 import { pairPluginAccess } from "../utils/pluginAccess";
@@ -13,7 +13,7 @@ import { escapeHtml } from "../utils/escapeHtml";
 import { mountKofiOverlay, removeKofiOverlay } from "../utils/kofi";
 import { bindEmbedCardControls, DEFAULT_EMBED_OPTIONS, renderEmbedCardControls } from "../components/embedCardControls";
 
-export async function mountDashboardPage({ container, account, refreshSession, setAccount, navigate }) {
+export async function mountDashboardPage({ container, account, query, refreshSession, setAccount, navigate }) {
   if (!account) {
     container.innerHTML = errorState("You must be logged in to view the dashboard.");
     return { cleanup: () => {} };
@@ -150,6 +150,17 @@ export async function mountDashboardPage({ container, account, refreshSession, s
               </section>
 
               <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-3">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h3 class="text-sm font-bold uppercase tracking-wide text-slate-700">Hytale Account</h3>
+                    <p id="dashboard-hytale-identity" class="mt-1 text-xs text-slate-600"></p>
+                  </div>
+                  <span id="dashboard-hytale-badge" class="rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"></span>
+                </div>
+                <button id="dashboard-hytale-connect" type="button" class="btn-secondary w-full"></button>
+              </section>
+
+              <section class="rounded-lg border border-sky-100 bg-sky-50/40 p-3 space-y-3">
                 <form id="dashboard-username-form" class="grid gap-2">
                   <label for="dashboard-username" class="text-xs font-semibold text-slate-600">Username</label>
                   <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -258,6 +269,9 @@ export async function mountDashboardPage({ container, account, refreshSession, s
   const accountSettingsSection = container.querySelector("#dashboard-account-settings");
   const accountEmailValue = container.querySelector("#dashboard-account-email-value");
   const accountEmailToggle = container.querySelector("#dashboard-account-email-toggle");
+  const hytaleIdentity = container.querySelector("#dashboard-hytale-identity");
+  const hytaleBadge = container.querySelector("#dashboard-hytale-badge");
+  const hytaleConnectButton = container.querySelector("#dashboard-hytale-connect");
   const pluginList = container.querySelector("#dashboard-plugin-list");
   const logoutButton = container.querySelector("#dashboard-logout-button");
   const liveStatus = container.querySelector("#dashboard-live-status");
@@ -396,6 +410,19 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     accountEmailToggle.textContent = isEmailRevealed ? "Hide" : "Reveal";
   }
 
+  function renderHytaleConnection() {
+    const isConnected = currentAccount?.hytale_connected === true;
+    const hytaleUsername = String(currentAccount?.hytale_username || "").trim();
+    hytaleIdentity.textContent = isConnected
+      ? (hytaleUsername ? `Connected as ${hytaleUsername}` : "Connected to Hytale")
+      : "Connect Hytale to use it to sign in to this HStats account.";
+    hytaleBadge.textContent = isConnected ? "Connected" : "Not connected";
+    hytaleBadge.className = isConnected
+      ? "rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800"
+      : "rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600";
+    hytaleConnectButton.textContent = isConnected ? "Update Hytale Profile" : "Connect Hytale";
+  }
+
   function applyAccountDetails(nextAccount) {
     if (!nextAccount) return;
     currentAccount = nextAccount;
@@ -414,6 +441,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       }
     }
     renderAccountEmail();
+    renderHytaleConnection();
     updateDashboardSummary();
   }
 
@@ -822,8 +850,15 @@ export async function mountDashboardPage({ container, account, refreshSession, s
     renderAccountEmail();
   };
 
+  const onConnectHytale = () => {
+    hytaleConnectButton.disabled = true;
+    hytaleConnectButton.textContent = "Redirecting to Hytale...";
+    window.location.assign(getHytaleOAuthStartUrl("/dashboard"));
+  };
+
   summaryEditNameButton?.addEventListener("click", onEditNameClick);
   accountEmailToggle.addEventListener("click", onToggleEmail);
+  hytaleConnectButton.addEventListener("click", onConnectHytale);
   profileEmbedCleanup = bindEmbedCardControls(container, {
     idPrefix: "dashboard-developer-embed",
     kind: "developer",
@@ -852,7 +887,23 @@ export async function mountDashboardPage({ container, account, refreshSession, s
 
   await loadPlugins();
   renderAccountEmail();
+  renderHytaleConnection();
   updateDashboardSummary();
+
+  if (query?.get("oauth_provider") === "hytale" && query.get("oauth_status")) {
+    const oauthSucceeded = query.get("oauth_status") === "success";
+    const oauthError = query.get("oauth_error") || "unknown_error";
+    showFeedback(
+      oauthSucceeded ? "Hytale account connected." : `Could not connect Hytale (${oauthError}).`,
+      oauthSucceeded ? "success" : "error",
+      hytaleConnectButton,
+    );
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.searchParams.delete("oauth_provider");
+    cleanUrl.searchParams.delete("oauth_status");
+    cleanUrl.searchParams.delete("oauth_error");
+    window.history.replaceState({}, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+  }
 
   return {
     cleanup: () => {
@@ -864,6 +915,7 @@ export async function mountDashboardPage({ container, account, refreshSession, s
       removeKofiOverlay();
       summaryEditNameButton?.removeEventListener("click", onEditNameClick);
       accountEmailToggle.removeEventListener("click", onToggleEmail);
+      hytaleConnectButton.removeEventListener("click", onConnectHytale);
     },
   };
 }

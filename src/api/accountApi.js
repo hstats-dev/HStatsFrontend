@@ -80,8 +80,25 @@ export function getDeveloperProfile(developerUuid, signal) {
 }
 
 export function getDiscordOAuthStartUrl(returnToPath = "/auth") {
-  const normalizedReturnTo = typeof returnToPath === "string" && returnToPath.startsWith("/") ? returnToPath : "/auth";
+  const normalizedReturnTo = typeof returnToPath === "string"
+    && returnToPath.startsWith("/")
+    && !returnToPath.startsWith("//")
+    && !returnToPath.includes("\\")
+    ? returnToPath
+    : "/auth";
   const oauthUrl = new URL(`${API_ROOT}/account/oauth/discord/start`);
+  oauthUrl.searchParams.set("return_to", normalizedReturnTo);
+  return oauthUrl.toString();
+}
+
+export function getHytaleOAuthStartUrl(returnToPath = "/auth") {
+  const normalizedReturnTo = typeof returnToPath === "string"
+    && returnToPath.startsWith("/")
+    && !returnToPath.startsWith("//")
+    && !returnToPath.includes("\\")
+    ? returnToPath
+    : "/auth";
+  const oauthUrl = new URL(`${API_ROOT}/account/oauth/hytale/start`);
   oauthUrl.searchParams.set("return_to", normalizedReturnTo);
   return oauthUrl.toString();
 }
