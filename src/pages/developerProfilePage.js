@@ -1,6 +1,6 @@
 import { getDeveloperProfile } from "../api/accountApi";
 import { getGlobalStats } from "../api/serverApi";
-import { renderDeveloperButtons, renderDeveloperIconLinks } from "../components/developerLinks";
+import { renderDeveloperButtons, renderModIconLinks } from "../components/developerLinks";
 import { loadingState } from "../components/loadingState";
 import { emptyState } from "../components/emptyState";
 import { errorState } from "../components/errorState";
@@ -134,7 +134,7 @@ export async function mountDeveloperProfilePage({ container, params }) {
               managedMods.length === 0
                 ? emptyState("No mods listed", "This developer has no public managed mods.")
                 : `
-                  <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     ${managedMods
                       .map((mod) => {
                         const modUuid = String(mod?.uuid || "").trim();
@@ -145,7 +145,7 @@ export async function mountDeveloperProfilePage({ container, params }) {
                         const pluginLinks = mod?.links && typeof mod.links === "object" ? mod.links : {};
 
                         return `
-                          <article class="rounded-xl border border-sky-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-50/40">
+                          <article class="flex h-full flex-col rounded-xl border border-sky-100 bg-white p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:bg-sky-50/40">
                             <div class="flex items-start justify-between gap-3">
                               <a
                                 href="/mods/${encodeURIComponent(modUuid)}"
@@ -166,17 +166,17 @@ export async function mountDeveloperProfilePage({ container, params }) {
                                 <p class="text-xl font-extrabold leading-none text-slate-900">${escapeHtml(formatNumber(totalPlayers))}</p>
                               </div>
                             </div>
-                            <div class="mt-3">
-                              ${renderDeveloperIconLinks({ links: pluginLinks })}
-                            </div>
-                            <div class="mt-3">
+                            <div class="mt-auto flex flex-nowrap items-center gap-2 pt-3">
                               <a
                                 href="/mods/${encodeURIComponent(modUuid)}"
                                 data-link
-                                class="inline-flex items-center rounded-md border border-sky-200 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-sky-50"
+                                class="inline-flex shrink-0 items-center rounded-md border border-sky-200 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-sky-50"
                               >
                                 View detailed stats
                               </a>
+                              <div class="ml-auto">
+                                ${renderModIconLinks(pluginLinks, { compact: true, showEmpty: false })}
+                              </div>
                             </div>
                           </article>
                         `;

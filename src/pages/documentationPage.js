@@ -58,7 +58,7 @@ const API_ENDPOINTS = [
     id: "list-mods",
     route: "GET /plugin/list-plugins",
     summary: "Public directory listing for mods, ranked globally by active servers before pagination.",
-    params: ["search", "page", "max"],
+    params: ["search", "page", "max", "sort", "links", "developer_uuid", "min_servers", "max_servers", "min_players", "max_players"],
     rateLimit: "HEAVY_GET",
     curl: `${PUBLIC_API_BASE}/plugin/list-plugins?search=combat&page=1&max=50`,
     json: {
@@ -69,6 +69,8 @@ const API_ENDPOINTS = [
             name: "CombatEnhancer",
             github_link: "",
             curseforge_link: "",
+            modtale_link: "https://modtale.net/mod/combat-enhancer",
+            modifold_link: "https://modifold.com/mod/combat-enhancer",
           },
           servers_using: 42,
           total_players: 912,
@@ -100,7 +102,10 @@ const API_ENDPOINTS = [
       links: {
         github_link: "",
         curseforge_link: "",
+        modtale_link: "https://modtale.net/mod/combat-enhancer",
+        modifold_link: "https://modifold.com/mod/combat-enhancer",
       },
+      marketplace_downloads: { curseforge: 4200, modtale: 1200, modifold: 350 },
       versions: {
         "1.7.5": 20,
         "1.7.4-BETA": 4,
@@ -156,6 +161,8 @@ const API_ENDPOINTS = [
             links: {
               github_link: "",
               curseforge_link: "",
+              modtale_link: "",
+              modifold_link: "",
             },
             servers_using: 42,
             total_players: 912,

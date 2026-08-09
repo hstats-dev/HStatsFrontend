@@ -9,7 +9,7 @@ import {
 } from "./charts";
 import { statCard } from "./statCard";
 import { emptyState } from "./emptyState";
-import { renderDeveloperButtons } from "./developerLinks";
+import { renderDeveloperIdentityLink, renderModButtons } from "./developerLinks";
 import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
 import { bindEmbedCardControls, DEFAULT_EMBED_OPTIONS, renderEmbedCardControls } from "./embedCardControls";
@@ -140,14 +140,6 @@ function renderCoPluginItem(item) {
   `;
 }
 
-function resolveDeveloperId(developerInfo) {
-  const accountId = developerInfo?.account?.id;
-  const directId = developerInfo?.id;
-  const idValue = accountId || directId;
-  if (!idValue) return "";
-  return String(idValue).trim();
-}
-
 function compareVersionsDesc(a, b) {
   return VERSION_COLLATOR.compare(String(b || ""), String(a || ""));
 }
@@ -248,6 +240,18 @@ function resolvePrivateUuidRefreshError(error) {
   return error?.message || "Failed to refresh the private key.";
 }
 
+function downloadJsonFile(filename, payload) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 function resolvePluginNameError(error) {
   const errorCode = String(error?.payload?.error_code || "").trim().toLowerCase();
   const errorField = String(error?.payload?.field || "").trim().toLowerCase();
@@ -331,6 +335,7 @@ function renderTimeChartCard(holderElement, { title, canvasId, hasSourceData, fr
             <button type="button" data-plugin-history-range="30d" class="btn-secondary px-3 py-1.5 text-xs">30d</button>
             <button type="button" data-plugin-history-range="all" class="btn-secondary px-3 py-1.5 text-xs">All</button>
             <button type="button" data-plugin-history-reset-zoom class="btn-secondary px-3 py-1.5 text-xs">Reset Zoom</button>
+            <button type="button" id="plugin-history-export-json" class="btn-secondary px-3 py-1.5 text-xs">Export JSON</button>
           </div>
         </div>
         <div class="grid gap-2 md:grid-cols-[1fr_1fr_auto]">
@@ -416,7 +421,6 @@ export function renderPluginAnalytics(
   const coreCounts = sortedCountEntries(pluginInfo.core_count || pluginInfo.core_counts);
   const versionEntries = normalizeVersionEntries(pluginInfo.versions);
   const coPlugins = normalizeCoPlugins(pluginInfo.co_plugins, pluginUuid);
-  const developerId = resolveDeveloperId(developerInfo);
   const allTimePeak = pluginInfo.all_time_peak || {};
   const pluginName = pluginInfo.name || "Unknown";
   const isUnlisted = pluginInfo.is_unlisted === true;
@@ -426,11 +430,12 @@ export function renderPluginAnalytics(
     : {
         github_link: pluginInfo.github_link || "",
         curseforge_link: pluginInfo.curseforge_link || "",
+        modtale_link: pluginInfo.modtale_link || "",
+        modifold_link: pluginInfo.modifold_link || "",
       };
-  const linkDisplayInfo = {
-    ...(developerInfo || {}),
-    links: pluginLinks,
-  };
+  const marketplaceDownloads = pluginInfo.marketplace_downloads && typeof pluginInfo.marketplace_downloads === "object"
+    ? pluginInfo.marketplace_downloads
+    : {};
   const nameControlMarkup = editablePluginName
     ? `
         <div class="rounded-xl border border-sky-100 bg-slate-50 p-3">
@@ -584,6 +589,26 @@ export function renderPluginAnalytics(
                 value="${escapeHtml(pluginLinks.curseforge_link || "")}"
               />
             </label>
+            <label class="grid gap-1 text-xs font-semibold text-slate-600">
+              Modtale Link
+              <input
+                id="plugin-modtale-link"
+                type="url"
+                class="input-base"
+                placeholder="https://modtale.net/mod/example"
+                value="${escapeHtml(pluginLinks.modtale_link || "")}"
+              />
+            </label>
+            <label class="grid gap-1 text-xs font-semibold text-slate-600">
+              Modifold Link
+              <input
+                id="plugin-modifold-link"
+                type="url"
+                class="input-base"
+                placeholder="https://modifold.com/mod/example"
+                value="${escapeHtml(pluginLinks.modifold_link || "")}"
+              />
+            </label>
           </form>
         </div>
         ${
@@ -645,7 +670,7 @@ export function renderPluginAnalytics(
             detail: formatPeakDetail(allTimePeak.servers),
           })}
           ${statCard({
-            label: "Total Players",
+            label: "Active Players",
             value: formatNumber(pluginInfo.total_players),
             detail: formatPeakDetail(allTimePeak.players),
           })}
@@ -702,24 +727,9 @@ export function renderPluginAnalytics(
                       : `
                         <div class="mt-4">
                           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Developer</p>
-                          ${
-                            developerId
-                              ? `
-                                <a
-                                  href="/developers/${encodeURIComponent(developerId)}"
-                                  data-link
-                                  class="mt-2 inline-flex items-center gap-2 rounded-full bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white shadow-soft transition hover:bg-brand-700 hover:text-white"
-                                >
-                                  <svg viewBox="0 0 24 24" aria-hidden="true" class="h-3.5 w-3.5" fill="none">
-                                    <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" stroke-width="2" />
-                                    <path d="M4 20a8 8 0 0 1 16 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                                  </svg>
-                                  <span>View Developer Profile</span>
-                                </a>
-                              `
-                              : ""
-                          }
-                          ${renderDeveloperButtons(linkDisplayInfo)}
+                          <div class="mt-2">${renderDeveloperIdentityLink(developerInfo, { plain: true })}</div>
+                          <p class="mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">Mod Links</p>
+                          ${renderModButtons(pluginLinks, marketplaceDownloads)}
                         </div>
                       `
                   }
@@ -732,7 +742,7 @@ export function renderPluginAnalytics(
                   detail: formatPeakDetail(allTimePeak.servers),
                 })}
                 ${statCard({
-                  label: "Total Players",
+                  label: "Active Players",
                   value: formatNumber(pluginInfo.total_players),
                   detail: formatPeakDetail(allTimePeak.players),
                 })}
@@ -864,6 +874,8 @@ export function renderPluginAnalytics(
   const pluginLinksForm = container.querySelector("#plugin-links-form");
   const pluginGithubLinkInput = container.querySelector("#plugin-github-link");
   const pluginCurseforgeLinkInput = container.querySelector("#plugin-curseforge-link");
+  const pluginModtaleLinkInput = container.querySelector("#plugin-modtale-link");
+  const pluginModifoldLinkInput = container.querySelector("#plugin-modifold-link");
   const pluginLinksSubmit = container.querySelector("#plugin-links-submit");
   const pluginVisibilityControl = container.querySelector("#plugin-visibility-control");
   const pluginVisibilityInput = container.querySelector("#plugin-visibility-unlisted");
@@ -875,6 +887,7 @@ export function renderPluginAnalytics(
   const pluginHistoryPresetButtons = Array.from(container.querySelectorAll("button[data-plugin-history-range]"));
   const pluginHistoryResetZoom = container.querySelector("button[data-plugin-history-reset-zoom]");
   const pluginHistoryToggleMarkers = container.querySelector("button[data-plugin-history-toggle-markers]");
+  const pluginHistoryExportJson = container.querySelector("#plugin-history-export-json");
   const refreshPrivateKeyTrigger = container.querySelector("#private-plugin-uuid-refresh-trigger");
   const refreshPrivateKeyModal = container.querySelector("#private-plugin-uuid-refresh-modal");
   const refreshPrivateKeyCancel = container.querySelector("#private-plugin-uuid-refresh-cancel");
@@ -1090,6 +1103,8 @@ export function renderPluginAnalytics(
     pluginLinksForm &&
     pluginGithubLinkInput &&
     pluginCurseforgeLinkInput &&
+    pluginModtaleLinkInput &&
+    pluginModifoldLinkInput &&
     pluginLinksSubmit &&
     editablePluginLinks
   ) {
@@ -1097,12 +1112,14 @@ export function renderPluginAnalytics(
       event.preventDefault();
       const githubLink = pluginGithubLinkInput.value.trim();
       const curseforgeLink = pluginCurseforgeLinkInput.value.trim();
+      const modtaleLink = pluginModtaleLinkInput.value.trim();
+      const modifoldLink = pluginModifoldLinkInput.value.trim();
 
       pluginLinksSubmit.disabled = true;
       pluginLinksSubmit.textContent = "Saving...";
 
       try {
-        await applyPluginLinks(pluginUuid, githubLink, curseforgeLink);
+        await applyPluginLinks(pluginUuid, githubLink, curseforgeLink, modtaleLink, modifoldLink);
         if (typeof onNotify === "function") {
           onNotify("Mod links saved.", "success", pluginLinksForm);
         }
@@ -1176,6 +1193,7 @@ export function renderPluginAnalytics(
         kind: "plugin",
         uuid: pluginUuid,
         state: embedOptionsState,
+        displayName: pluginName,
       }),
     );
   }
@@ -1259,6 +1277,26 @@ export function renderPluginAnalytics(
   });
   bindListener(pluginHistoryResetZoom, "click", () => {
     historyChart?.resetZoom?.();
+  });
+  bindListener(pluginHistoryExportJson, "click", () => {
+    const selectedHistory = history
+      .filter((point) => point._timestamp !== null)
+      .filter((point) => effectiveHistoryRangeState.mode === "all"
+        || ((parsedHistoryFrom === null || point._timestamp >= parsedHistoryFrom)
+          && (parsedHistoryTo === null || point._timestamp <= parsedHistoryTo)));
+    const exportedHistory = selectedHistory.map(({ _index, _timestamp, _timestampSource, ...point }) => point);
+    const safeName = String(pluginName || "mod").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "mod";
+    downloadJsonFile(`${safeName}-hstats-history.json`, {
+      plugin_uuid: pluginUuid,
+      plugin_name: pluginName,
+      exported_at: new Date().toISOString(),
+      range: {
+        mode: effectiveHistoryRangeState.mode,
+        from: selectedHistory[0]?._timestampSource || null,
+        to: selectedHistory[selectedHistory.length - 1]?._timestampSource || null,
+      },
+      history: exportedHistory,
+    });
   });
   bindListener(pluginHistoryToggleMarkers, "click", () => {
     effectiveMarkerState.showMarkers = !effectiveMarkerState.showMarkers;

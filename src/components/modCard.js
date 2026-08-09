@@ -1,8 +1,9 @@
 import { formatNumber } from "../utils/format";
 import { escapeHtml } from "../utils/escapeHtml";
-import { renderDeveloperIconLinks } from "./developerLinks";
+import { renderDeveloperIdentityLink, renderModIconLinks } from "./developerLinks";
 
-export function modCard({ uuid, name, developerInfo, links, totalServers, totalPlayers, isUnlisted = false }) {
+export function modCard({ uuid, name, developerInfo, links, totalServers, totalPlayers, isUnlisted = false, directoryQuery = "" }) {
+  const detailQuery = directoryQuery ? `?from=${encodeURIComponent(directoryQuery)}` : "";
   return `
     <article class="surface transition hover:-translate-y-0.5 hover:border-sky-200">
       <div class="p-4 space-y-3">
@@ -15,9 +16,9 @@ export function modCard({ uuid, name, developerInfo, links, totalServers, totalP
           }
         </div>
         <div class="flex items-end justify-between gap-3">
-          <div>
+          <div class="min-w-0">
             <p class="text-[11px] uppercase tracking-wide text-slate-500">Developer</p>
-            ${renderDeveloperIconLinks({ ...developerInfo, links })}
+            <div class="mt-1 truncate">${renderDeveloperIdentityLink(developerInfo, { plain: true })}</div>
           </div>
           <div class="grid grid-cols-2 gap-3 text-right">
             <div>
@@ -30,13 +31,16 @@ export function modCard({ uuid, name, developerInfo, links, totalServers, totalP
             </div>
           </div>
         </div>
-        <a
-          href="/mods/${encodeURIComponent(uuid)}"
-          data-link
-          class="inline-flex items-center rounded-md border border-sky-200 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-sky-50"
-        >
-          View detailed stats
-        </a>
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <a
+            href="/mods/${encodeURIComponent(uuid)}${detailQuery}"
+            data-link
+            class="inline-flex items-center rounded-md border border-sky-200 px-2.5 py-1.5 text-xs font-semibold text-brand-700 hover:bg-sky-50"
+          >
+            View detailed stats
+          </a>
+          ${renderModIconLinks(links, { compact: true, showEmpty: false })}
+        </div>
       </div>
     </article>
   `;

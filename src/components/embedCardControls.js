@@ -330,10 +330,15 @@ export function renderEmbedCardControls({
             </details>
 
             <div class="space-y-2">
+              <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Share and Embed</p>
               <label for="${escapeHtml(idPrefix)}-url" class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Embed URL</label>
               <input id="${escapeHtml(idPrefix)}-url" type="text" readonly class="input-base w-full py-1.5 font-mono text-[10px]" value="${escapeHtml(initialUrl)}" />
               <div class="flex flex-wrap items-center gap-2">
-                <button id="${escapeHtml(idPrefix)}-copy" type="button" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy URL</button>
+                <button type="button" data-embed-copy="url" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy Embed URL</button>
+                <button type="button" data-embed-copy="markdown" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy Markdown</button>
+                <button type="button" data-embed-copy="html" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy HTML</button>
+                <button type="button" data-embed-copy="page" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy Page Link</button>
+                <button type="button" data-embed-copy="api" class="btn-secondary px-3 py-1.5 text-xs whitespace-nowrap">Copy API URL</button>
                 <p id="${escapeHtml(idPrefix)}-copy-status" class="text-[11px] text-slate-500"></p>
               </div>
             </div>
@@ -349,6 +354,7 @@ export function bindEmbedCardControls(root, {
   kind = "plugin",
   uuid,
   state = null,
+  displayName = "HStats stats",
   copyMessage = "Embed URL copied.",
 } = {}) {
   const elements = {
@@ -362,9 +368,9 @@ export function bindEmbedCardControls(root, {
     dark: root.querySelector(`#${idPrefix}-dark`),
     preview: root.querySelector(`#${idPrefix}-preview`),
     url: root.querySelector(`#${idPrefix}-url`),
-    copy: root.querySelector(`#${idPrefix}-copy`),
     status: root.querySelector(`#${idPrefix}-copy-status`),
   };
+  const copyButtons = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-copy]`));
   const colorInputs = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-option]`));
   const colorPickers = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-picker]`));
   const colorControls = Array.from(root.querySelectorAll(`[data-embed-card-controls="${idPrefix}"] [data-embed-color-control]`));
@@ -466,11 +472,35 @@ export function bindEmbedCardControls(root, {
     refreshSoon();
   }));
 
-  bind(elements.copy, "click", async () => {
+  copyButtons.forEach((button) => bind(button, "click", async () => {
     if (!elements.status) return;
+    const embedUrl = elements.url.value;
+    const encodedUuid = encodeURIComponent(uuid || "");
+    const publicPath = kind === "developer" ? `/developers/${encodedUuid}` : `/mods/${encodedUuid}`;
+    const apiPath = kind === "developer" ? `/account/developer/${encodedUuid}` : `/plugin/plugin-info/${encodedUuid}`;
+    const pageUrl = new URL(publicPath, window.location.origin).toString();
+    const apiUrl = `${API_ROOT}${apiPath}`;
+    const safeLabel = String(displayName || "HStats stats").replace(/[\[\]]/g, "");
+    const htmlLabel = escapeHtml(String(displayName || "HStats stats"));
+    const copyType = button.getAttribute("data-embed-copy");
+    const values = {
+      url: embedUrl,
+      markdown: `[![${safeLabel} HStats](${embedUrl})](${pageUrl})`,
+      html: `<a href="${pageUrl}" target="_blank" rel="noopener noreferrer"><img src="${embedUrl}" alt="${htmlLabel} HStats"></a>`,
+      page: pageUrl,
+      api: apiUrl,
+    };
+    const messages = {
+      url: copyMessage,
+      markdown: "Markdown embed copied.",
+      html: "HTML embed copied.",
+      page: "Public page link copied.",
+      api: "API URL copied.",
+    };
+
     try {
-      await navigator.clipboard.writeText(elements.url.value);
-      elements.status.textContent = copyMessage;
+      await navigator.clipboard.writeText(values[copyType] || embedUrl);
+      elements.status.textContent = messages[copyType] || copyMessage;
     } catch {
       elements.status.textContent = "Copy failed. You can copy the URL field manually.";
     }
@@ -481,7 +511,7 @@ export function bindEmbedCardControls(root, {
     copyStatusTimeout = window.setTimeout(() => {
       elements.status.textContent = "";
     }, 2600);
-  });
+  }));
 
   updateColorControlVisibility();
   refresh({ updatePreview: false });

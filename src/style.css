@@ -527,6 +527,11 @@
     background-color: rgb(51 65 85) !important;
   }
 
+  html.dark .download-count-badge {
+    background-color: rgb(12 74 110) !important;
+    color: rgb(186 230 253) !important;
+  }
+
   html.dark .bg-red-50 {
     background-color: rgb(69 10 10) !important;
   }

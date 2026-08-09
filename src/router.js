@@ -237,6 +237,18 @@ export function createRouter({ root, state, refreshSession, setAccount }) {
   };
 
   const onLinkClick = (event) => {
+    const mobileNavToggle = event.target.closest("button[data-mobile-nav-toggle]");
+    if (mobileNavToggle) {
+      event.preventDefault();
+      const mobileNavigation = document.querySelector("#mobile-navigation");
+      const willOpen = mobileNavigation?.classList.contains("hidden") ?? false;
+      mobileNavigation?.classList.toggle("hidden", !willOpen);
+      mobileNavigation?.classList.toggle("grid", willOpen);
+      mobileNavToggle.setAttribute("aria-expanded", String(willOpen));
+      mobileNavToggle.setAttribute("aria-label", willOpen ? "Close navigation menu" : "Open navigation menu");
+      return;
+    }
+
     const themeToggleButton = event.target.closest("button[data-theme-toggle]");
     if (themeToggleButton) {
       event.preventDefault();

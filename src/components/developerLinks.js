@@ -1,4 +1,5 @@
 import { escapeHtml } from "../utils/escapeHtml";
+import { formatNumber } from "../utils/format";
 
 function sanitizeExternalUrl(rawUrl) {
   if (!rawUrl) return "";
@@ -19,13 +20,30 @@ function resolveDeveloperLinks(developerInfo) {
   const nestedAccount = developerInfo?.account && typeof developerInfo.account === "object"
     ? developerInfo.account
     : {};
-  const nestedLinks = developerInfo?.links && typeof developerInfo.links === "object"
-    ? developerInfo.links
-    : {};
 
   return {
-    githubLink: sanitizeExternalUrl(nestedLinks.github_link || nestedAccount.github_link || developerInfo?.github_link),
-    curseforgeLink: sanitizeExternalUrl(nestedLinks.curseforge_link || nestedAccount.curseforge_link || developerInfo?.curseforge_link),
+    githubLink: sanitizeExternalUrl(nestedAccount.github_link || developerInfo?.github_link),
+    curseforgeLink: sanitizeExternalUrl(nestedAccount.curseforge_link || developerInfo?.curseforge_link),
+  };
+}
+
+function resolveModLinks(links) {
+  const value = links && typeof links === "object" ? links : {};
+  return {
+    githubLink: sanitizeExternalUrl(value.github_link),
+    curseforgeLink: sanitizeExternalUrl(value.curseforge_link),
+    modtaleLink: sanitizeExternalUrl(value.modtale_link),
+    modifoldLink: sanitizeExternalUrl(value.modifold_link),
+  };
+}
+
+function resolveDeveloperIdentity(developerInfo) {
+  const account = developerInfo?.account && typeof developerInfo.account === "object"
+    ? developerInfo.account
+    : {};
+  return {
+    id: String(account.id || developerInfo?.id || "").trim(),
+    username: String(account.username || developerInfo?.username || "").trim() || "No Name",
   };
 }
 
@@ -51,7 +69,11 @@ function curseforgeIcon() {
   `;
 }
 
-function iconLink({ href, label, icon, accentClass }) {
+function marketplaceIcon(src) {
+  return `<img src="${escapeHtml(src)}" alt="" class="h-5 w-5 object-contain" aria-hidden="true" />`;
+}
+
+function iconLink({ href, label, icon, accentClass, compact = false }) {
   if (!href) return "";
 
   return `
@@ -59,7 +81,7 @@ function iconLink({ href, label, icon, accentClass }) {
       href="${escapeHtml(href)}"
       target="_blank"
       rel="noopener noreferrer"
-      class="inline-flex h-8 w-8 items-center justify-center rounded border border-sky-200 bg-white text-slate-700 transition ${accentClass}"
+      class="inline-flex ${compact ? "h-8 min-w-8 px-1.5" : "h-11 min-w-11 px-2"} items-center justify-center rounded-lg border border-sky-200 bg-white text-slate-700 transition ${accentClass}"
       title="${escapeHtml(`Open ${label}`)}"
       aria-label="${escapeHtml(`Open ${label}`)}"
     >
@@ -68,17 +90,93 @@ function iconLink({ href, label, icon, accentClass }) {
   `;
 }
 
-function textLink({ href, label, icon, accentClass }) {
+function marketplaceIconLink({ href, label, logoSrc, count, compact = false }) {
   if (!href) return "";
+  const normalizedCount = Number(count);
+  const countMarkup = Number.isFinite(normalizedCount) && normalizedCount >= 0
+    ? `<span class="download-count-badge rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">${escapeHtml(formatNumber(normalizedCount))}</span>`
+    : "";
+  return `
+    <a
+      href="${escapeHtml(href)}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="inline-flex ${compact ? "h-8 min-w-8 px-1.5" : "min-h-11 px-3 py-2"} items-center gap-2 rounded-lg border border-sky-200 bg-white text-xs font-semibold text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
+      aria-label="Open ${escapeHtml(label)}${countMarkup ? `, ${escapeHtml(formatNumber(normalizedCount))} downloads` : ""}"
+      title="${escapeHtml(`Open ${label}`)}"
+    >
+      ${marketplaceIcon(logoSrc)}
+      ${countMarkup}
+    </a>
+  `;
+}
+
+export function renderDeveloperIdentityLink(developerInfo, { plain = false } = {}) {
+  const { id, username } = resolveDeveloperIdentity(developerInfo);
+  if (!id) {
+    return `<span class="text-sm font-semibold text-slate-700">${escapeHtml(username)}</span>`;
+  }
+  return `
+    <a
+      href="/developers/${encodeURIComponent(id)}"
+      data-link
+      class="${
+        plain
+          ? "text-sm font-semibold text-brand-700 transition hover:text-brand-800 hover:underline"
+          : "inline-flex min-h-11 items-center rounded-lg border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-brand-700 transition hover:border-sky-300 hover:bg-sky-50"
+      }"
+    >
+      ${escapeHtml(username)}
+    </a>
+  `;
+}
+
+export function renderModIconLinks(links, { compact = false, showEmpty = true } = {}) {
+  const { githubLink, curseforgeLink, modtaleLink, modifoldLink } = resolveModLinks(links);
+  const items = [
+    iconLink({ href: githubLink, label: "GitHub", icon: githubIcon(), accentClass: "hover:border-slate-400 hover:bg-slate-50", compact }),
+    iconLink({ href: curseforgeLink, label: "CurseForge", icon: curseforgeIcon(), accentClass: "hover:border-orange-300 hover:bg-orange-50", compact }),
+    marketplaceIconLink({ href: modtaleLink, label: "Modtale", logoSrc: "/modtale-logo.png", compact }),
+    marketplaceIconLink({ href: modifoldLink, label: "Modifold", logoSrc: "/modifold-logo.png", compact }),
+  ].filter(Boolean);
+
+  if (items.length === 0) {
+    return showEmpty ? `<p class="mt-1 text-xs font-medium text-slate-500">No mod links listed</p>` : "";
+  }
+  return `<div class="${compact ? "flex-nowrap gap-1" : "mt-1 flex-wrap gap-2"} flex items-center">${items.join("")}</div>`;
+}
+
+export function renderModButtons(links, downloads = {}) {
+  const { githubLink, curseforgeLink, modtaleLink, modifoldLink } = resolveModLinks(links);
+  const items = [
+    textLink({ href: githubLink, label: "GitHub", icon: githubIcon(), accentClass: "hover:border-slate-400 hover:bg-slate-50" }),
+    textLink({ href: curseforgeLink, label: "CurseForge", icon: curseforgeIcon(), accentClass: "hover:border-orange-300 hover:bg-orange-50", count: downloads?.curseforge }),
+    textLink({ href: modtaleLink, label: "Modtale", icon: marketplaceIcon("/modtale-logo.png"), accentClass: "hover:border-sky-300 hover:bg-sky-50", count: downloads?.modtale }),
+    textLink({ href: modifoldLink, label: "Modifold", icon: marketplaceIcon("/modifold-logo.png"), accentClass: "hover:border-sky-300 hover:bg-sky-50", count: downloads?.modifold }),
+  ].filter(Boolean);
+
+  if (items.length === 0) {
+    return `<p class="mt-2 text-sm text-slate-500">No mod links provided.</p>`;
+  }
+  return `<div class="mt-2 flex flex-wrap items-center gap-2">${items.join("")}</div>`;
+}
+
+function textLink({ href, label, icon, accentClass, count }) {
+  if (!href) return "";
+  const normalizedCount = Number(count);
+  const hasCount = Number.isFinite(normalizedCount) && normalizedCount >= 0;
+  const formattedCount = hasCount ? formatNumber(normalizedCount) : "";
   return `
     <a
       href="${escapeHtml(href)}"
       target="_blank"
       rel="noopener noreferrer"
       class="inline-flex items-center gap-2 rounded-md border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition ${accentClass}"
+      aria-label="Open ${escapeHtml(label)}${hasCount ? `, ${escapeHtml(formattedCount)} downloads` : ""}"
     >
       ${icon}
       <span>${escapeHtml(label)}</span>
+      ${hasCount ? `<span class="download-count-badge rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-brand-700">${escapeHtml(formattedCount)}</span>` : ""}
     </a>
   `;
 }

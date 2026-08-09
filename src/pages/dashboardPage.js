@@ -334,6 +334,7 @@ export async function mountDashboardPage({ container, account, query, refreshSes
       kind: "plugin",
       uuid: pluginUuid,
       state: getPluginEmbedOptionsState(pluginUuid),
+      displayName: pluginName,
     });
     renderedPluginEmbedUuid = pluginUuid;
   }
@@ -864,6 +865,7 @@ export async function mountDashboardPage({ container, account, query, refreshSes
     kind: "developer",
     uuid: String(currentAccount?.id || "").trim(),
     state: profileEmbedOptionsState,
+    displayName: String(currentAccount?.username || "HStats developer"),
     copyMessage: "Profile embed URL copied.",
   });
 

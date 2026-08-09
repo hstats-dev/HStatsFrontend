@@ -26,6 +26,8 @@ const LINK_LABELS = {
   with_any: "Any link",
   github: "GitHub",
   curseforge: "CurseForge",
+  modtale: "Modtale",
+  modifold: "Modifold",
   none: "No links",
 };
 
@@ -52,7 +54,7 @@ function filterSummary(filters) {
   return parts.join(", ");
 }
 
-export async function mountModsPage({ container }) {
+export async function mountModsPage({ container, query }) {
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const pageSize = 50;
 
@@ -77,8 +79,8 @@ export async function mountModsPage({ container }) {
       </header>
       <section class="surface">
         <div class="surface-body space-y-4">
-          <form id="mod-search-form" class="space-y-4">
-            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_180px_auto]">
+          <form id="mod-search-form">
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1.7fr)_132px_132px_repeat(4,minmax(76px,0.58fr))_auto] lg:gap-2">
               <label class="grid gap-1 text-xs font-semibold text-slate-600">
                 Search
                 <input
@@ -104,31 +106,29 @@ export async function mountModsPage({ container }) {
                   <option value="with_any">Any link</option>
                   <option value="github">GitHub</option>
                   <option value="curseforge">CurseForge</option>
+                  <option value="modtale">Modtale</option>
+                  <option value="modifold">Modifold</option>
                   <option value="none">No links</option>
                 </select>
               </label>
-              <div class="flex items-end gap-2">
-                <button id="mod-filter-reset" class="btn-secondary" type="button">Reset</button>
-              </div>
-            </div>
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label class="grid gap-1 text-xs font-semibold text-slate-600">
-                Min Servers
+                Servers Min
                 <input id="mod-min-servers-filter" type="number" min="0" step="1" class="input-base" />
               </label>
               <label class="grid gap-1 text-xs font-semibold text-slate-600">
-                Max Servers
+                Servers Max
                 <input id="mod-max-servers-filter" type="number" min="0" step="1" class="input-base" />
               </label>
-              <div class="grid grid-cols-2 gap-3">
-                <label class="grid gap-1 text-xs font-semibold text-slate-600">
-                  Min Players
-                  <input id="mod-min-players-filter" type="number" min="0" step="1" class="input-base" />
-                </label>
-                <label class="grid gap-1 text-xs font-semibold text-slate-600">
-                  Max Players
-                  <input id="mod-max-players-filter" type="number" min="0" step="1" class="input-base" />
-                </label>
+              <label class="grid gap-1 text-xs font-semibold text-slate-600">
+                Players Min
+                <input id="mod-min-players-filter" type="number" min="0" step="1" class="input-base" />
+              </label>
+              <label class="grid gap-1 text-xs font-semibold text-slate-600">
+                Players Max
+                <input id="mod-max-players-filter" type="number" min="0" step="1" class="input-base" />
+              </label>
+              <div class="flex items-end sm:col-span-2 lg:col-span-1">
+                <button id="mod-filter-reset" class="btn-secondary w-full lg:w-auto" type="button">Reset</button>
               </div>
             </div>
           </form>
@@ -150,6 +150,38 @@ export async function mountModsPage({ container }) {
   const resetButton = container.querySelector("#mod-filter-reset");
   const status = container.querySelector("#mod-status");
   const list = container.querySelector("#mod-list");
+
+  function readFiltersFromQuery(params) {
+    const filters = {
+      sort: SORT_LABELS[params.get("sort")] ? params.get("sort") : DEFAULT_FILTERS.sort,
+      links: LINK_LABELS[params.get("links")] ? params.get("links") : DEFAULT_FILTERS.links,
+      minServers: normalizeIntegerFilter(params.get("minServers")) ?? "",
+      maxServers: normalizeIntegerFilter(params.get("maxServers")) ?? "",
+      minPlayers: normalizeIntegerFilter(params.get("minPlayers")) ?? "",
+      maxPlayers: normalizeIntegerFilter(params.get("maxPlayers")) ?? "",
+    };
+    const page = Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1);
+    return { filters, page, search: String(params.get("search") || "").trim() };
+  }
+
+  function buildDirectoryQuery() {
+    const params = new URLSearchParams();
+    if (currentQuery) params.set("search", currentQuery);
+    if (currentFilters.sort !== DEFAULT_FILTERS.sort) params.set("sort", currentFilters.sort);
+    if (currentFilters.links !== DEFAULT_FILTERS.links) params.set("links", currentFilters.links);
+    ["minServers", "maxServers", "minPlayers", "maxPlayers"].forEach((key) => {
+      if (currentFilters[key]) params.set(key, currentFilters[key]);
+    });
+    if (currentPage > 1) params.set("page", String(currentPage));
+    return params.toString();
+  }
+
+  function syncDirectoryUrl(historyMode = "replace") {
+    if (historyMode === "none") return;
+    const directoryQuery = buildDirectoryQuery();
+    const destination = `/mods${directoryQuery ? `?${directoryQuery}` : ""}`;
+    window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", destination);
+  }
 
   function readFilters() {
     const nextFilters = {
@@ -197,6 +229,8 @@ export async function mountModsPage({ container }) {
           links: {
             github_link: plugin.github_link || "",
             curseforge_link: plugin.curseforge_link || "",
+            modtale_link: plugin.modtale_link || "",
+            modifold_link: plugin.modifold_link || "",
           },
           isUnlisted: plugin.is_unlisted === true,
           totalServers: value?.servers_using || 0,
@@ -315,18 +349,19 @@ export async function mountModsPage({ container }) {
 
     list.innerHTML = `
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        ${visibleMods.map((mod) => modCard(mod)).join("")}
+        ${visibleMods.map((mod) => modCard({ ...mod, directoryQuery: window.location.search })).join("")}
       </div>
       ${renderPagination()}
     `;
   }
 
-  async function runListSearch(query, page = 1, filters = currentFilters) {
+  async function runListSearch(query, page = 1, filters = currentFilters, { historyMode = "replace" } = {}) {
     const token = ++searchToken;
     currentQuery = query;
     currentFilters = { ...DEFAULT_FILTERS, ...filters };
     currentPage = Math.max(1, Number(page) || 1);
     isDirectLookup = false;
+    syncDirectoryUrl(historyMode);
 
     const summary = filterSummary(currentFilters);
     list.innerHTML = loadingState(query ? `Searching mods for "${query}"...` : "Loading mods...");
@@ -349,6 +384,7 @@ export async function mountModsPage({ container }) {
       totalPages = normalizeTotalPages(response);
       if (currentPage > totalPages) {
         currentPage = totalPages;
+        syncDirectoryUrl(historyMode === "none" ? "none" : "replace");
       }
       visibleMods = normalizePluginsResponse(response);
       totalPlugins = normalizeTotalPlugins(response, visibleMods.length);
@@ -372,6 +408,8 @@ export async function mountModsPage({ container }) {
     totalPages = 1;
     totalPlugins = 1;
     currentPage = 1;
+    currentQuery = pluginUuid;
+    syncDirectoryUrl("replace");
 
     list.innerHTML = loadingState(`Loading mod ${pluginUuid}...`);
     status.textContent = "Direct UUID lookups ignore directory filters.";
@@ -391,6 +429,8 @@ export async function mountModsPage({ container }) {
           links: pluginInfo.links || {
             github_link: pluginInfo.github_link || "",
             curseforge_link: pluginInfo.curseforge_link || "",
+            modtale_link: pluginInfo.modtale_link || "",
+            modifold_link: pluginInfo.modifold_link || "",
           },
           isUnlisted: pluginInfo.is_unlisted === true,
           totalServers: pluginInfo.total_servers || 0,
@@ -463,7 +503,7 @@ export async function mountModsPage({ container }) {
     if (requestedPage < 1 || requestedPage > totalPages) return;
     if (requestedPage === currentPage) return;
 
-    await runListSearch(currentQuery, requestedPage, currentFilters);
+    await runListSearch(currentQuery, requestedPage, currentFilters, { historyMode: "push" });
   });
 
   [
@@ -486,7 +526,14 @@ export async function mountModsPage({ container }) {
     });
   });
 
-  await runListSearch("", 1, DEFAULT_FILTERS);
+  const initialState = readFiltersFromQuery(query || new URLSearchParams());
+  searchInput.value = initialState.search;
+  applyFiltersToForm(initialState.filters);
+  if (uuidPattern.test(initialState.search)) {
+    await loadPluginByUuid(initialState.search);
+  } else {
+    await runListSearch(initialState.search, initialState.page, initialState.filters, { historyMode: "none" });
+  }
 
   return {
     cleanup: () => {

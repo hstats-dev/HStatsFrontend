@@ -20,13 +20,15 @@ export function getPluginInfo(pluginUuid, signal) {
   });
 }
 
-export function applyPluginLinks(pluginUuid, githubLink, curseforgeLink) {
+export function applyPluginLinks(pluginUuid, githubLink, curseforgeLink, modtaleLink, modifoldLink) {
   return apiRequest("/plugin/apply-plugin-links", {
     method: "POST",
     body: {
       plugin_uuid: pluginUuid,
       github_link: githubLink,
       curseforge_link: curseforgeLink,
+      modtale_link: modtaleLink,
+      modifold_link: modifoldLink,
     },
   });
 }
